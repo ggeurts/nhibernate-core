@@ -785,44 +785,7 @@ namespace NHibernate.SqlCommand
 
 		public IEnumerator<object> GetEnumerator()
 		{
-			if (_firstPartIndex < 0) yield break;
-
-			// Yield (substring of) first part
-			var partIndex = _firstPartIndex;
-			var part = _parts[partIndex++];
-			if (part.IsParameter)
-			{
-				yield return _parameters[part.SqlIndex];
-			}
-			else
-			{
-				var firstPartOffset = _sqlStartIndex - part.SqlIndex;
-				var firstPartLength = Math.Min(part.Length - firstPartOffset, _length);
-				yield return part.Content.Substring(firstPartOffset, firstPartLength);
-			}
-
-			if (_firstPartIndex == _lastPartIndex) yield break;
-
-			// Yield middle parts
-			while (partIndex < _lastPartIndex)
-			{
-				part = _parts[partIndex++];
-				yield return part.IsParameter
-					? (object)this._parameters[part.SqlIndex]
-					: part.Content;
-			}
-
-			// Yield (substring of) last part
-			part = _parts[partIndex];
-			if (part.IsParameter)
-			{
-				yield return _parameters[part.SqlIndex];
-			}
-			else
-			{
-				var lastPartLength = _sqlStartIndex + _length - part.SqlIndex;
-				yield return part.Content.Substring(0, lastPartLength);
-			}
+			return new PartEnumerator(this);
 		}
 
 		#endregion
@@ -858,12 +821,14 @@ namespace NHibernate.SqlCommand
 			const uint FNV_OFFSET_BASIS = 2166136261;
 			const uint FNV_PRIME = 16777619;
 
-			uint hashCode = FNV_OFFSET_BASIS;
+			if (_length <= 0) return 0;
+
 			unchecked
 			{
-				for (int i = 0; i < _parts.Count; i++)
+				uint hashCode = FNV_OFFSET_BASIS;
+				foreach (var part in this)
 				{
-					hashCode ^= (uint)_parts[i].GetHashCode();
+					hashCode ^= (uint)part.GetHashCode();
 					hashCode *= FNV_PRIME;
 				}
 				return (int)hashCode;
@@ -933,6 +898,78 @@ namespace NHibernate.SqlCommand
 		public SqlString GetSubselectString()
 		{
 			return new SubselectClauseExtractor(this).GetSqlString();
+		}
+
+		private class PartEnumerator: IEnumerator<object>
+		{
+			private readonly SqlString _parent;
+			private readonly int _sqlStartIndex;
+			private readonly int _length;
+			private int _partIndex = -1;
+			private int _partOffset;
+			private int _partLength;
+			private int _remainingLength;
+
+			public PartEnumerator(SqlString parent)
+				: this(parent, 0, parent._length)
+			{}
+
+			public PartEnumerator(SqlString parent, int offset, int length)
+			{
+				_parent = parent;
+				_sqlStartIndex = _parent._sqlStartIndex + offset;
+				_length = Math.Min(length, _parent._sqlStartIndex + _parent.Length - _sqlStartIndex);
+				_remainingLength = _length > 0 ? -1 : 0;
+			}
+
+			public void Dispose()
+			{}
+
+			public bool MoveNext()
+			{
+				if (_remainingLength == 0)
+				{
+					_partIndex = -1;
+					return false;
+				}
+
+				if (_remainingLength < 0)
+				{
+					_partIndex = _parent.GetPartIndexForSqlIndex(_sqlStartIndex);
+					var part = _parent._parts[_partIndex];
+					_partOffset = _sqlStartIndex - part.SqlIndex;
+					_partLength = Math.Min(part.Length - _partOffset, _length);
+					_remainingLength = _length - _partLength;
+				}
+				else
+				{
+					var part = _parent._parts[++_partIndex];
+					_partOffset = 0;
+					_partLength = Math.Min(part.Length, _remainingLength);
+					_remainingLength -= _partLength;
+				}
+				return true;
+			}
+
+			public void Reset()
+			{
+				_remainingLength = _length > 0 ? -1 : 0;
+			}
+
+			public object Current
+			{
+				get
+				{
+					if (_partIndex < 0) return null;
+					
+					var part = _parent._parts[_partIndex];
+					if (part.IsParameter) return _parent._parameters[part.SqlIndex];
+
+					return part.Length == _partLength
+						? part.Content
+						: part.Content.Substring(_partOffset, _partLength);
+				}
+			}
 		}
 
 		[Serializable]

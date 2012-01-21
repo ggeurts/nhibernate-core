@@ -406,5 +406,17 @@ namespace NHibernate.Test.SqlCommandTest
 			// more simple version of the test
 			Parameter.Placeholder.Should().Not.Be.SameInstanceAs(Parameter.Placeholder);
 		}
+
+		[Test]
+		public void HashcodeEqualForEqualStringsWithDifferentHistory()
+		{
+			SqlString sql = new SqlString(new[] { "select", " from table" });
+			sql = sql.Substring(6);
+
+			SqlString sql2 = new SqlString(new[] { " from table" });
+
+			Assert.That(sql, Is.EqualTo(sql2));
+			Assert.That(sql.GetHashCode(), Is.EqualTo(sql2.GetHashCode()));
+		}
 	}
 }
