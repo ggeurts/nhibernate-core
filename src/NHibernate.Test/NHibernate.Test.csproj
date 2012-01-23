@@ -983,6 +983,7 @@
     <Compile Include="NHSpecificTest\NH3010\Model.cs" />
     <Compile Include="NHSpecificTest\NH2982\Fixture.cs" />
     <Compile Include="NHSpecificTest\NH2982\Model.cs" />
+    <Compile Include="NHSpecificTest\NH2977\FixtureByCode.cs" />
     <Compile Include="NHSpecificTest\NH3004\Fixture.cs" />
     <Compile Include="NHSpecificTest\NH3004\TestSqlClientDriver.cs" />
     <Compile Include="NHSpecificTest\NH3074\Fixture.cs" />

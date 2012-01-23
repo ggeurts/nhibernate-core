@@ -19,8 +19,7 @@ namespace NHibernate.Loader.Collection
 		private IParameterSpecification[] parametersSpecifications;
 
 		public CollectionLoader(IQueryableCollection persister, ISessionFactoryImplementor factory,
-								IDictionary<string, IFilter> enabledFilters)
-			: base(factory, enabledFilters)
+								IDictionary<string, IFilter> enabledFilters) : base(factory, enabledFilters)
 		{
 			collectionPersister = persister;
 		}
@@ -81,15 +80,15 @@ namespace NHibernate.Loader.Collection
 				bool hasFirstRow = GetFirstRow(selection) > 0;
 				bool useOffset = hasFirstRow && dialect.SupportsLimitOffset;
 				int max = GetMaxOrLimit(dialect, selection);
-				int? skip = useOffset ? (int?)dialect.GetOffsetValue(GetFirstRow(selection)) : null;
-				int? take = max != int.MaxValue ? (int?)max : null;
+				int? skip = useOffset ? (int?) dialect.GetOffsetValue(GetFirstRow(selection)) : null;
+				int? take = max != int.MaxValue ? (int?) max : null;
 
 				Parameter skipSqlParameter = null;
 				Parameter takeSqlParameter = null;
 				if (skip.HasValue)
 				{
 					string skipParameterName = "nhsubselectskip";
-					var skipParameter = new NamedParameterSpecification(1, 0, skipParameterName) { ExpectedType = NHibernateUtil.Int32 };
+					var skipParameter = new NamedParameterSpecification(1, 0, skipParameterName) {ExpectedType = NHibernateUtil.Int32};
 					skipSqlParameter = Parameter.Placeholder;
 					skipSqlParameter.BackTrack = skipParameter.GetIdsForBackTrack(sessionFactory).First();
 					parameters.Add(skipParameterName, new TypedValue(skipParameter.ExpectedType, skip.Value, EntityMode.Poco));
@@ -98,14 +97,16 @@ namespace NHibernate.Loader.Collection
 				if (take.HasValue)
 				{
 					string takeParameterName = "nhsubselecttake";
-					var takeParameter = new NamedParameterSpecification(1, 0, takeParameterName) { ExpectedType = NHibernateUtil.Int32 };
+					var takeParameter = new NamedParameterSpecification(1, 0, takeParameterName) {ExpectedType = NHibernateUtil.Int32};
 					takeSqlParameter = Parameter.Placeholder;
 					takeSqlParameter.BackTrack = takeParameter.GetIdsForBackTrack(sessionFactory).First();
 					parameters.Add(takeParameterName, new TypedValue(takeParameter.ExpectedType, take.Value, EntityMode.Poco));
 					parameterSpecs.Add(takeParameter);
 				}
+
 				// The dialect can move the given parameters where he need, what it can't do is generates new parameters loosing the BackTrack.
-				return dialect.GetLimitString(subquery, skip, take, skipSqlParameter, takeSqlParameter);
+				SqlString result;
+				if (TryGetLimitString(dialect, subquery, skip, take, skipSqlParameter, takeSqlParameter, out result)) return result;
 			}
 			return subquery;
 		}
