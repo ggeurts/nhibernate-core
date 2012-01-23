@@ -9,6 +9,7 @@ using NHibernate.Driver;
 using NHibernate.Engine;
 using NHibernate.Mapping;
 using NHibernate.SqlCommand;
+using NHibernate.SqlCommand.Parser;
 using NHibernate.Type;
 using NHibernate.Util;
 using Environment = NHibernate.Cfg.Environment;
@@ -160,11 +161,6 @@ namespace NHibernate.Dialect
 			// Casting to CHAR (without specified length) truncates to 30 characters. 
 			// A longer version would be safer, but 50 is enough to prevent errors when casting uniqueidentifer to a string representation (NH-2858)
 			RegisterFunction("str", new SQLFunctionTemplate(NHibernateUtil.String, "cast(?1 as nvarchar(50))"));
-
-			RegisterFunction("substring", new EmulatedLengthSubstringFunction());
-
-			RegisterFunction("bit_length", new SQLFunctionTemplate(NHibernateUtil.Int32, "datalength(?1) * 8"));
-			RegisterFunction("extract", new SQLFunctionTemplate(NHibernateUtil.Int32, "datepart(?1, ?3)"));
 		}
 
 		protected virtual void RegisterGuidTypeMapping()
@@ -340,14 +336,25 @@ namespace NHibernate.Dialect
 
 		public override SqlString GetLimitString(SqlString querySqlString, SqlString offset, SqlString limit)
 		{
-			/*
-			 * "SELECT TOP limit rest-of-sql-statement"
-			 */
-
 			int insertPoint;
-			return TryGetAfterSelectInsertPoint(querySqlString, out insertPoint)
-				? querySqlString.Insert(insertPoint, new SqlString(" top ", limit))
+			return TryFindLimitInsertPoint(querySqlString, out insertPoint)
+				? querySqlString.Insert(insertPoint, new SqlString("top ", limit, " "))
 				: null;
+		}
+
+		protected static bool TryFindLimitInsertPoint(SqlString sql, out int result)
+		{
+			var tokenEnum = new SqlTokenizer(sql).GetEnumerator();
+			
+			SqlToken selectToken;
+			if (tokenEnum.TryParseUntilFirstMsSqlSelectColumn(out selectToken))
+			{
+				result = tokenEnum.Current.SqlIndex;
+				return true;
+			}
+
+			result = -1;
+			return false;
 		}
 
 		/// <summary>
@@ -397,24 +404,7 @@ namespace NHibernate.Dialect
 			return quoted.Replace(new string(CloseQuote, 2), CloseQuote.ToString());
 		}
 
-		protected bool TryGetAfterSelectInsertPoint(SqlString sql, out int result)
-		{
-			if (sql.StartsWithCaseInsensitive("select distinct"))
-			{
-				result = 15;
-				return true;
-			}
-			if (sql.StartsWithCaseInsensitive("select"))
-			{
-				result = 6;
-				return true;
-			}
-
-			result = -1;
-			return false;
-		}
-
-		protected bool NeedsLockHint(LockMode lockMode)
+		private bool NeedsLockHint(LockMode lockMode)
 		{
 			return lockMode.GreaterThan(LockMode.Read);
 		}
@@ -518,7 +508,7 @@ namespace NHibernate.Dialect
 			string selectExistingObject = GetSelectExistingObject(name, table);
 			return string.Format(@"if not exists ({0})", selectExistingObject);
 		}
-		
+
 		[Serializable]
 		protected class CountBigQueryFunction : ClassicAggregateFunction
 		{
