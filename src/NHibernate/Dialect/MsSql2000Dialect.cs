@@ -9,7 +9,6 @@ using NHibernate.Driver;
 using NHibernate.Engine;
 using NHibernate.Mapping;
 using NHibernate.SqlCommand;
-using NHibernate.SqlCommand.Parser;
 using NHibernate.Type;
 using NHibernate.Util;
 using Environment = NHibernate.Cfg.Environment;
@@ -161,6 +160,8 @@ namespace NHibernate.Dialect
 			// Casting to CHAR (without specified length) truncates to 30 characters. 
 			// A longer version would be safer, but 50 is enough to prevent errors when casting uniqueidentifer to a string representation (NH-2858)
 			RegisterFunction("str", new SQLFunctionTemplate(NHibernateUtil.String, "cast(?1 as nvarchar(50))"));
+
+			RegisterFunction("substring", new EmulatedLengthSubstringFunction());
 		}
 
 		protected virtual void RegisterGuidTypeMapping()
@@ -336,25 +337,15 @@ namespace NHibernate.Dialect
 
 		public override SqlString GetLimitString(SqlString querySqlString, SqlString offset, SqlString limit)
 		{
-			int insertPoint;
-			return TryFindLimitInsertPoint(querySqlString, out insertPoint)
-				? querySqlString.Insert(insertPoint, new SqlString("top ", limit, " "))
-				: null;
-		}
+			/*
+			 * "SELECT TOP limit rest-of-sql-statement"
+			 */
 
-		protected static bool TryFindLimitInsertPoint(SqlString sql, out int result)
-		{
-			var tokenEnum = new SqlTokenizer(sql).GetEnumerator();
-			
-			SqlToken selectToken;
-			if (tokenEnum.TryParseUntilFirstMsSqlSelectColumn(out selectToken))
-			{
-				result = tokenEnum.Current.SqlIndex;
-				return true;
-			}
+			SqlStringBuilder topFragment = new SqlStringBuilder();
+			topFragment.Add(" top ");
+			topFragment.Add(limit);
 
-			result = -1;
-			return false;
+			return querySqlString.Insert(GetAfterSelectInsertPoint(querySqlString), topFragment.ToSqlString());
 		}
 
 		/// <summary>
@@ -404,6 +395,19 @@ namespace NHibernate.Dialect
 			return quoted.Replace(new string(CloseQuote, 2), CloseQuote.ToString());
 		}
 
+		private static int GetAfterSelectInsertPoint(SqlString sql)
+		{
+			if (sql.StartsWithCaseInsensitive("select distinct"))
+			{
+				return 15;
+			}
+			else if (sql.StartsWithCaseInsensitive("select"))
+			{
+				return 6;
+			}
+			throw new NotSupportedException("The query should start with 'SELECT' or 'SELECT DISTINCT'");
+		}
+
 		private bool NeedsLockHint(LockMode lockMode)
 		{
 			return lockMode.GreaterThan(LockMode.Read);
@@ -413,7 +417,14 @@ namespace NHibernate.Dialect
 		{
 			if (NeedsLockHint(lockMode))
 			{
-				return tableName + " with (updlock, rowlock)";
+				if (lockMode == LockMode.Upgrade)
+				{
+					return tableName + " with (updlock, rowlock)";
+				}
+				else if (lockMode == LockMode.UpgradeNoWait)
+				{
+					return tableName + " with (updlock, rowlock, nowait)";
+				}
 			}
 
 			return tableName;
