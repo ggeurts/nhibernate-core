@@ -1,29 +1,14 @@
+using System;
 using System.Collections;
+using NHibernate.Criterion;
 using NHibernate.Transform;
 using NUnit.Framework;
-using NHibernate.Criterion;
 
 namespace NHibernate.Test.SqlTest.Query
 {
 	[TestFixture]
 	public class GeneralTest : TestCase
 	{
-		protected const string OrganizationFetchJoinEmploymentSQL =
-			"SELECT org.ORGID as {org.id}, " +
-			"        org.NAME as {org.name}, " +
-			"        emp.EMPLOYER as {emp.key}, " +
-			"        emp.EMPID as {emp.element}, " +
-			"        {emp.element.*}  " +
-			"FROM ORGANIZATION org " +
-			"    LEFT OUTER JOIN EMPLOYMENT emp ON org.ORGID = emp.EMPLOYER";
-
-		protected const string OrganizationJoinEmploymentSQL =
-			"SELECT org.ORGID as {org.id}, " +
-			"        org.NAME as {org.name}, " +
-			"        {emp.*}  " +
-			"FROM ORGANIZATION org " +
-			"    LEFT OUTER JOIN EMPLOYMENT emp ON org.ORGID = emp.EMPLOYER";
-
 		protected const string EmploymentSQL = "SELECT * FROM EMPLOYMENT";
 
 		protected string EmploymentSQLMixedScalarEntity =
@@ -61,7 +46,7 @@ namespace NHibernate.Test.SqlTest.Query
 			try
 			{
 				string sql = "select {org.*} " +
-				             "from organization org";
+							 "from organization org";
 				s.CreateSQLQuery(sql).List();
 				Assert.Fail("Should throw an exception since no AddEntity nor AddScalar has been performed.");
 			}
@@ -111,8 +96,8 @@ namespace NHibernate.Test.SqlTest.Query
 			t = s.BeginTransaction();
 
 			l = s.CreateSQLQuery("select {org.*}, {emp.*} " +
-			                     "from ORGANIZATION org " +
-			                     "     left outer join EMPLOYMENT emp on org.ORGID = emp.EMPLOYER, ORGANIZATION org2")
+								 "from ORGANIZATION org " +
+								 "     left outer join EMPLOYMENT emp on org.ORGID = emp.EMPLOYER, ORGANIZATION org2")
 				.AddEntity("org", typeof(Organization))
 				.AddJoin("emp", "org.employments")
 				.SetResultTransformer(new DistinctRootEntityResultTransformer())
@@ -187,7 +172,7 @@ namespace NHibernate.Test.SqlTest.Query
 			Assert.IsTrue(result.Contains("JBoss"));
 
 			result = s.GetNamedQuery("orgNamesOnly").SetResultTransformer(CriteriaSpecification.AliasToEntityMap).List();
-			IDictionary m = (IDictionary) result[0];
+			IDictionary m = (IDictionary)result[0];
 			Assert.AreEqual(2, result.Count);
 			Assert.AreEqual(1, m.Count);
 			Assert.IsTrue(m.Contains("NAME"));
@@ -200,13 +185,13 @@ namespace NHibernate.Test.SqlTest.Query
 
 			IEnumerator iter = s.GetNamedQuery("orgNamesAndOrgs").List().GetEnumerator();
 			iter.MoveNext();
-			object[] o = (object[]) iter.Current;
+			object[] o = (object[])iter.Current;
 			Assert.AreEqual(o[0], "IFA");
-			Assert.AreEqual(((Organization) o[1]).Name, "IFA");
+			Assert.AreEqual(((Organization)o[1]).Name, "IFA");
 			iter.MoveNext();
-			o = (object[]) iter.Current;
+			o = (object[])iter.Current;
 			Assert.AreEqual(o[0], "JBoss");
-			Assert.AreEqual(((Organization) o[1]).Name, "JBoss");
+			Assert.AreEqual(((Organization)o[1]).Name, "JBoss");
 
 			t.Commit();
 			s.Close();
@@ -217,16 +202,16 @@ namespace NHibernate.Test.SqlTest.Query
 			// test that the ordering of the results is truly based on the order in which they were defined
 			iter = s.GetNamedQuery("orgsAndOrgNames").List().GetEnumerator();
 			iter.MoveNext();
-			object[] row = (object[]) iter.Current;
+			object[] row = (object[])iter.Current;
 			Assert.AreEqual(typeof(Organization), row[0].GetType(), "expecting non-scalar result first");
 			Assert.AreEqual(typeof(string), row[1].GetType(), "expecting scalar result second");
-			Assert.AreEqual("IFA", ((Organization) row[0]).Name);
+			Assert.AreEqual("IFA", ((Organization)row[0]).Name);
 			Assert.AreEqual(row[1], "IFA");
 			iter.MoveNext();
-			row = (object[]) iter.Current;
+			row = (object[])iter.Current;
 			Assert.AreEqual(typeof(Organization), row[0].GetType(), "expecting non-scalar result first");
 			Assert.AreEqual(typeof(string), row[1].GetType(), "expecting scalar result second");
-			Assert.AreEqual(((Organization) row[0]).Name, "JBoss");
+			Assert.AreEqual(((Organization)row[0]).Name, "JBoss");
 			Assert.AreEqual(row[1], "JBoss");
 			Assert.IsFalse(iter.MoveNext());
 
@@ -238,11 +223,11 @@ namespace NHibernate.Test.SqlTest.Query
 
 			iter = s.GetNamedQuery("orgIdsAndOrgNames").List().GetEnumerator();
 			iter.MoveNext();
-			o = (object[]) iter.Current;
+			o = (object[])iter.Current;
 			Assert.AreEqual(o[1], "IFA");
 			Assert.AreEqual(o[0], idIfa);
 			iter.MoveNext();
-			o = (object[]) iter.Current;
+			o = (object[])iter.Current;
 			Assert.AreEqual(o[1], "JBoss");
 			Assert.AreEqual(o[0], idJBoss);
 
@@ -273,7 +258,7 @@ namespace NHibernate.Test.SqlTest.Query
 			IQuery namedQuery = s.GetNamedQuery("AllEmploymentAsMapped");
 			IList list = namedQuery.List();
 			Assert.AreEqual(1, list.Count);
-			Employment emp2 = (Employment) list[0];
+			Employment emp2 = (Employment)list[0];
 			Assert.AreEqual(emp2.EmploymentId, emp.EmploymentId);
 			Assert.AreEqual(emp2.StartDate.Date, emp.StartDate.Date);
 			Assert.AreEqual(emp2.EndDate, emp.EndDate);
@@ -288,18 +273,18 @@ namespace NHibernate.Test.SqlTest.Query
 			Assert.AreEqual(1, list.Count);
 			object res = list[0];
 			AssertClassAssignability(res.GetType(), typeof(IDictionary));
-			IDictionary m = (IDictionary) res;
+			IDictionary m = (IDictionary)res;
 			Assert.AreEqual(2, m.Count);
 			t.Commit();
 			s.Close();
 
 			s = OpenSession();
 			t = s.BeginTransaction();
-			sqlQuery = s.GetNamedQuery("organizationreturnproperty");
+			sqlQuery = s.GetNamedQuery("organization-using-manual-aliases");
 			sqlQuery.SetResultTransformer(CriteriaSpecification.AliasToEntityMap);
 			list = sqlQuery.List();
 			Assert.AreEqual(2, list.Count);
-			m = (IDictionary) list[0];
+			m = (IDictionary)list[0];
 			Assert.IsTrue(m.Contains("org"));
 			AssertClassAssignability(m["org"].GetType(), typeof(Organization));
 			Assert.IsTrue(m.Contains("emp"));
@@ -313,10 +298,10 @@ namespace NHibernate.Test.SqlTest.Query
 			namedQuery = s.GetNamedQuery("EmploymentAndPerson");
 			list = namedQuery.List();
 			Assert.AreEqual(1, list.Count);
-			object[] objs = (object[]) list[0];
+			object[] objs = (object[])list[0];
 			Assert.AreEqual(2, objs.Length);
-			emp2 = (Employment) objs[0];
-			gavin = (Person) objs[1];
+			emp2 = (Employment)objs[0];
+			gavin = (Person)objs[1];
 			s.Delete(emp2);
 			s.Delete(jboss);
 			s.Delete(gavin);
@@ -359,37 +344,37 @@ namespace NHibernate.Test.SqlTest.Query
 
 			s = OpenSession();
 			t = s.BeginTransaction();
-			Product p = (Product) s.CreateQuery("from Product p join fetch p.orders").List()[0];
+			Product p = (Product)s.CreateQuery("from Product p join fetch p.orders").List()[0];
 			Assert.IsTrue(NHibernateUtil.IsInitialized(p.Orders));
 			t.Commit();
 			s.Close();
 
 			s = OpenSession();
 			t = s.BeginTransaction();
-			object[] o = (object[]) s.CreateSQLQuery("select\r\n" +
-			                                         "        product.orgid as {product.id.orgid}," +
-			                                         "        product.productnumber as {product.id.productnumber}," +
-			                                         "        {prod_orders}.orgid as orgid3_1_,\r\n" +
-			                                         "        {prod_orders}.ordernumber as ordernum2_3_1_,\r\n" +
-			                                         "        product.name as {product.name}," +
-			                                         "        {prod_orders.element.*}," +
-			                                         /*"        orders.PROD_NO as PROD4_3_1_,\r\n" +
-				"        orders.person as person3_1_,\r\n" +
-				"        orders.PROD_ORGID as PROD3_0__,\r\n" +
-				"        orders.PROD_NO as PROD4_0__,\r\n" +
-				"        orders.orgid as orgid0__,\r\n" +
-				"        orders.ordernumber as ordernum2_0__ \r\n" +*/
-			                                         "    from\r\n" +
-			                                         "        Product product \r\n" +
-			                                         "    inner join\r\n" +
-			                                         "        TBL_ORDER {prod_orders} \r\n" +
-			                                         "            on product.orgid={prod_orders}.PROD_ORGID \r\n" +
-			                                         "            and product.productnumber={prod_orders}.PROD_NO")
-			                        	.AddEntity("product", typeof(Product))
-			                        	.AddJoin("prod_orders", "product.orders")
-			                        	.List()[0];
+			object[] o = (object[])s.CreateSQLQuery("select\r\n" +
+													 "        product.orgid as {product.id.orgid}," +
+													 "        product.productnumber as {product.id.productnumber}," +
+													 "        {prod_orders}.orgid as orgid3_1_,\r\n" +
+													 "        {prod_orders}.ordernumber as ordernum2_3_1_,\r\n" +
+													 "        product.name as {product.name}," +
+													 "        {prod_orders.element.*}," +
+				/*"        orders.PROD_NO as PROD4_3_1_,\r\n" +
+"        orders.person as person3_1_,\r\n" +
+"        orders.PROD_ORGID as PROD3_0__,\r\n" +
+"        orders.PROD_NO as PROD4_0__,\r\n" +
+"        orders.orgid as orgid0__,\r\n" +
+"        orders.ordernumber as ordernum2_0__ \r\n" +*/
+													 "    from\r\n" +
+													 "        Product product \r\n" +
+													 "    inner join\r\n" +
+													 "        TBL_ORDER {prod_orders} \r\n" +
+													 "            on product.orgid={prod_orders}.PROD_ORGID \r\n" +
+													 "            and product.productnumber={prod_orders}.PROD_NO")
+										.AddEntity("product", typeof(Product))
+										.AddJoin("prod_orders", "product.orders")
+										.List()[0];
 
-			p = (Product) o[0];
+			p = (Product)o[0];
 			Assert.IsTrue(NHibernateUtil.IsInitialized(p.Orders));
 			IEnumerator en = p.Orders.GetEnumerator();
 			Assert.IsTrue(en.MoveNext());
@@ -421,7 +406,7 @@ namespace NHibernate.Test.SqlTest.Query
 				.List();
 			Assert.AreEqual(1, list.Count);
 
-			Employment emp2 = (Employment) list[0];
+			Employment emp2 = (Employment)list[0];
 			Assert.AreEqual(emp2.EmploymentId, emp.EmploymentId);
 			Assert.AreEqual(emp2.StartDate.Date, emp.StartDate.Date);
 			Assert.AreEqual(emp2.EndDate, emp.EndDate);
@@ -433,18 +418,18 @@ namespace NHibernate.Test.SqlTest.Query
 				.SetResultTransformer(CriteriaSpecification.AliasToEntityMap)
 				.List();
 			Assert.AreEqual(1, list.Count);
-			IDictionary m = (IDictionary) list[0];
+			IDictionary m = (IDictionary)list[0];
 			Assert.IsTrue(m.Contains("Employment"));
 			Assert.AreEqual(1, m.Count);
 
 			list = s.CreateSQLQuery(EmploymentSQL).List();
 			Assert.AreEqual(1, list.Count);
-			object[] o = (object[]) list[0];
+			object[] o = (object[])list[0];
 			Assert.AreEqual(8, o.Length);
 
 			list = s.CreateSQLQuery(EmploymentSQL).SetResultTransformer(CriteriaSpecification.AliasToEntityMap).List();
 			Assert.AreEqual(1, list.Count);
-			m = (IDictionary) list[0];
+			m = (IDictionary)list[0];
 			Assert.IsTrue(m.Contains("EMPID") || m.Contains("empid"));
 			Assert.IsTrue(m.Contains("AVALUE") || m.Contains("avalue"));
 			Assert.IsTrue(m.Contains("ENDDATE") || m.Contains("enddate"));
@@ -452,11 +437,11 @@ namespace NHibernate.Test.SqlTest.Query
 
 			// TODO H3: H3.2 can guess the return column type so they can use just addScalar("employerid"),
 			// but NHibernate currently can't do it.
-			list =
-				s.CreateSQLQuery(EmploymentSQLMixedScalarEntity).AddScalar("employerid", NHibernateUtil.Int64).AddEntity(
-					typeof(Employment)).List();
+			list = s.CreateSQLQuery(EmploymentSQLMixedScalarEntity)
+				.AddScalar("employerid", NHibernateUtil.Int64)
+				.AddEntity(typeof(Employment)).List();
 			Assert.AreEqual(1, list.Count);
-			o = (object[]) list[0];
+			o = (object[])list[0];
 			Assert.AreEqual(2, o.Length);
 			AssertClassAssignability(o[0].GetType(), typeof(long));
 			AssertClassAssignability(o[1].GetType(), typeof(Employment));
@@ -466,34 +451,6 @@ namespace NHibernate.Test.SqlTest.Query
 			queryWithCollection.SetInt64("id", jboss.Id);
 			list = queryWithCollection.List();
 			Assert.AreEqual(list.Count, 1);
-
-			s.Clear();
-
-			list = s.CreateSQLQuery(OrganizationJoinEmploymentSQL)
-				.AddEntity("org", typeof(Organization))
-				.AddJoin("emp", "org.employments")
-				.List();
-			Assert.AreEqual(2, list.Count);
-
-			s.Clear();
-
-			list = s.CreateSQLQuery(OrganizationFetchJoinEmploymentSQL)
-				.AddEntity("org", typeof(Organization))
-				.AddJoin("emp", "org.employments")
-				.List();
-			Assert.AreEqual(2, list.Count);
-
-			s.Clear();
-
-			// TODO : why twice?
-			s.GetNamedQuery("organizationreturnproperty").List();
-			list = s.GetNamedQuery("organizationreturnproperty").List();
-			Assert.AreEqual(2, list.Count);
-
-			s.Clear();
-
-			list = s.GetNamedQuery("organizationautodetect").List();
-			Assert.AreEqual(2, list.Count);
 
 			t.Commit();
 			s.Close();
@@ -528,14 +485,82 @@ namespace NHibernate.Test.SqlTest.Query
 			enterprise.Dimensions = d;
 			s.Save(enterprise);
 			//		s.Flush();
-			object[] result = (object[]) s.GetNamedQuery("spaceship").UniqueResult();
-			enterprise = (SpaceShip) result[0];
+			object[] result = (object[])s.GetNamedQuery("spaceship").UniqueResult();
+			enterprise = (SpaceShip)result[0];
 			Assert.IsTrue(50d == enterprise.Speed);
 			Assert.IsTrue(450d == ExtractDoubleValue(result[1]));
 			Assert.IsTrue(4500d == ExtractDoubleValue(result[2]));
 			s.Delete(enterprise);
 			t.Commit();
 			s.Close();
+		}
+
+		public void CanQueryWithGeneratedAliasesOnly_UsingWildcard()
+		{
+			const string SQL =
+				"SELECT org.ORGID as {org.id}, " +
+				"        org.NAME as {org.name}, " +
+				"        {emp.*}  " +
+				"FROM ORGANIZATION org " +
+				"    LEFT OUTER JOIN EMPLOYMENT emp ON org.ORGID = emp.EMPLOYER";
+
+			VerifyOrganisationQuery(session => session.CreateSQLQuery(SQL)
+				.AddEntity("org", typeof(Organization))
+				.AddJoin("emp", "org.employments"));
+		}
+
+		[Test]
+		public void CanQueryWithGeneratedAliasesOnly_UsingCollectionElementWildcard()
+		{
+			const string SQL =
+				"SELECT org.ORGID as {org.id}, " +
+				"        org.NAME as {org.name}, " +
+				"        emp.EMPLOYER as {emp.key}, " +
+				"        emp.EMPID as {emp.element}, " +
+				"        {emp.element.*}  " +
+				"FROM ORGANIZATION org " +
+				"    LEFT OUTER JOIN EMPLOYMENT emp ON org.ORGID = emp.EMPLOYER";
+
+			VerifyOrganisationQuery(session => session.CreateSQLQuery(SQL)
+				.AddEntity("org", typeof(Organization))
+				.AddJoin("emp", "org.employments"));
+		}
+
+		[Test]
+		public void CanQueryWithColumnNamesOnly()
+		{
+			VerifyOrganisationQuery(session => session.GetNamedQuery("organization-using-manual-aliases"));
+		}
+
+		[Test]
+		public void CanQueryWithManualAliasesOnly()
+		{
+			VerifyOrganisationQuery(session => session.GetNamedQuery("organization-using-column-names"));
+		}
+
+		[Test]
+		public void CanQueryWithMixOfColumnNamesAndManualAliases()
+		{
+			VerifyOrganisationQuery(session => session.GetNamedQuery("organization-using-column-names-and-manual-aliases"));
+		}
+
+		private void VerifyOrganisationQuery(Func<ISession, IQuery> queryFactory)
+		{
+			using (ISession s = OpenSession())
+			using (ITransaction t = s.BeginTransaction())
+			{
+				var ifa = new Organization("IFA");
+				var jboss = new Organization("JBoss");
+				var gavin = new Person("Gavin");
+				var emp = new Employment(gavin, jboss, "AU");
+				s.Save(jboss);
+				s.Save(ifa);
+				s.Save(gavin);
+				s.Save(emp);
+
+				var list = queryFactory(s).List();
+				Assert.AreEqual(2, list.Count);
+			}
 		}
 
 		[Test]
@@ -566,7 +591,7 @@ namespace NHibernate.Test.SqlTest.Query
 			{
 				IList l = s.CreateSQLQuery("select id from Speech where id in (:idList)")
 					.AddScalar("id", NHibernateUtil.Int32)
-					.SetParameterList("idList", new int[] {0, 1, 2, 3}, NHibernateUtil.Int32)
+					.SetParameterList("idList", new int[] { 0, 1, 2, 3 }, NHibernateUtil.Int32)
 					.List();
 			}
 		}
@@ -575,11 +600,11 @@ namespace NHibernate.Test.SqlTest.Query
 		{
 			if (value is double)
 			{
-				return (double) value;
+				return (double)value;
 			}
 			else if (value is decimal)
 			{
-				return (double) (decimal) value;
+				return (double)(decimal)value;
 			}
 			else
 			{
@@ -590,10 +615,10 @@ namespace NHibernate.Test.SqlTest.Query
 		public static void AssertClassAssignability(System.Type source, System.Type target)
 		{
 			Assert.IsTrue(target.IsAssignableFrom(source),
-			              "Classes were not assignment-compatible : source<" +
-			              source.FullName +
-			              "> target<" +
-			              target.FullName + ">"
+						  "Classes were not assignment-compatible : source<" +
+						  source.FullName +
+						  "> target<" +
+						  target.FullName + ">"
 				);
 		}
 	}

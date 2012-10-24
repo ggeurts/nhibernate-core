@@ -3982,7 +3982,7 @@ namespace NHibernate.Persister.Entity
 				// the entity from the first-level cache to avoid problems in the Save or SaveOrUpdate
 				// event listeners, which don't expect the entity to already be present in the 
 				// first-level cache.
-				session.PersistenceContext.RemoveEntity(session.GenerateEntityKey(id, this));
+				session.PersistenceContext.RemoveEntity(new EntityKey(id, this, session.EntityMode));
 			}
 		}
 
@@ -4003,7 +4003,7 @@ namespace NHibernate.Persister.Entity
 			{
 				// Remove entity from first-level cache to ensure that loader fetches fresh data from database.
 				// The loader will ensure that the same entity is added back to the first-level cache.
-				session.PersistenceContext.RemoveEntity(session.GenerateEntityKey(id, this));
+				session.PersistenceContext.RemoveEntity(new EntityKey(id, this, session.EntityMode));
 				ProcessGeneratedPropertiesWithLoader(id, entity, session);
 			}
 		}
