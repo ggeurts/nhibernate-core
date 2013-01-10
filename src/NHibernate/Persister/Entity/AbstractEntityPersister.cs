@@ -3965,7 +3965,23 @@ namespace NHibernate.Persister.Entity
 			{
 				throw new AssertionFailure("no insert-generated properties");
 			}
-			ProcessGeneratedProperties(id, entity, state, session, sqlInsertGeneratedValuesSelectString, PropertyInsertGenerationInclusions);
+
+			session.Batcher.ExecuteBatch(); //force immediate execution of the insert
+
+			if (loaderName == null)
+			{
+				ProcessGeneratedPropertiesWithGeneratedSql(id, entity, state, session, sqlInsertGeneratedValuesSelectString, PropertyInsertGenerationInclusions);
+			}
+			else
+			{
+				ProcessGeneratedPropertiesWithLoader(id, entity, session);
+
+				// The loader has added the entity to the first-level cache. We must remove
+				// the entity from the first-level cache to avoid problems in the Save or SaveOrUpdate
+				// event listeners, which don't expect the entity to already be present in the 
+				// first-level cache.
+				session.PersistenceContext.RemoveEntity(session.GenerateEntityKey(id, this));
+			}
 		}
 
 		public void ProcessUpdateGeneratedProperties(object id, object entity, object[] state, ISessionImplementor session)
@@ -3974,56 +3990,85 @@ namespace NHibernate.Persister.Entity
 			{
 				throw new AssertionFailure("no update-generated properties");
 			}
-			ProcessGeneratedProperties(id, entity, state, session, sqlUpdateGeneratedValuesSelectString, PropertyUpdateGenerationInclusions);
+
+			session.Batcher.ExecuteBatch(); //force immediate execution of the update
+
+			if (loaderName == null)
+			{
+				ProcessGeneratedPropertiesWithGeneratedSql(id, entity, state, session, sqlUpdateGeneratedValuesSelectString, PropertyUpdateGenerationInclusions);
+			}
+			else
+			{
+				// Remove entity from first-level cache to ensure that loader fetches fresh data from database.
+				// The loader will ensure that the same entity is added back to the first-level cache.
+				session.PersistenceContext.RemoveEntity(session.GenerateEntityKey(id, this));
+				ProcessGeneratedPropertiesWithLoader(id, entity, session);
+			}
 		}
 
-		private void ProcessGeneratedProperties(object id, object entity, object[] state,
-				ISessionImplementor session, SqlString selectionSQL, ValueInclusion[] includeds)
+		private void ProcessGeneratedPropertiesWithGeneratedSql(object id, object entity, object[] state,
+			ISessionImplementor session, SqlString selectionSQL, ValueInclusion[] generationInclusions)
 		{
-			session.Batcher.ExecuteBatch(); //force immediate execution of the insert
-
-			using (new SessionIdLoggingContext(session.SessionId)) 
-			try
-			{
-				IDbCommand cmd =
-					session.Batcher.PrepareQueryCommand(CommandType.Text, selectionSQL, IdentifierType.SqlTypes(Factory));
-				IDataReader rs = null;
+			using (new SessionIdLoggingContext(session.SessionId))
 				try
 				{
-					IdentifierType.NullSafeSet(cmd, id, 0, session);
-					rs = session.Batcher.ExecuteReader(cmd);
-					if (!rs.Read())
+					IDbCommand cmd =
+						session.Batcher.PrepareQueryCommand(CommandType.Text, selectionSQL, IdentifierType.SqlTypes(Factory));
+					IDataReader rs = null;
+					try
 					{
-						throw new HibernateException("Unable to locate row for retrieval of generated properties: "
-																				 + MessageHelper.InfoString(this, id, Factory));
-					}
-					for (int i = 0; i < PropertySpan; i++)
-					{
-						if (includeds[i] != ValueInclusion.None)
+						IdentifierType.NullSafeSet(cmd, id, 0, session);
+						rs = session.Batcher.ExecuteReader(cmd);
+						if (!rs.Read())
 						{
-							object hydratedState = PropertyTypes[i].Hydrate(rs, GetPropertyAliases(string.Empty, i), session, entity);
-							state[i] = PropertyTypes[i].ResolveIdentifier(hydratedState, session, entity);
-							SetPropertyValue(entity, i, state[i], session.EntityMode);
+							throw new HibernateException("Unable to locate row for retrieval of generated properties: "
+								+ MessageHelper.InfoString(this, id, Factory));
+						}
+						for (int i = 0; i < PropertySpan; i++)
+						{
+							if (generationInclusions[i] != ValueInclusion.None)
+							{
+								object hydratedState = PropertyTypes[i].Hydrate(rs, GetPropertyAliases(string.Empty, i), session, entity);
+								state[i] = PropertyTypes[i].ResolveIdentifier(hydratedState, session, entity);
+								SetPropertyValue(entity, i, state[i], session.EntityMode);
+							}
 						}
 					}
+					finally
+					{
+						session.Batcher.CloseCommand(cmd, rs);
+					}
 				}
-				finally
+				catch (DbException sqle)
 				{
-					session.Batcher.CloseCommand(cmd, rs);
+					var exceptionContext = new AdoExceptionContextInfo
+						{
+							SqlException = sqle,
+							Message = "unable to select generated column values",
+							Sql = selectionSQL.ToString(),
+							EntityName = EntityName,
+							EntityId = id
+						};
+					throw ADOExceptionHelper.Convert(Factory.SQLExceptionConverter, exceptionContext);
 				}
-			}
-			catch (DbException sqle)
+		}
+
+		private void ProcessGeneratedPropertiesWithLoader(object id, object entity, ISessionImplementor session)
+		{
+			var query = (AbstractQueryImpl)session.GetNamedQuery(loaderName);
+			if (query.HasNamedParameters)
 			{
-				var exceptionContext = new AdoExceptionContextInfo
-				                       	{
-				                       		SqlException = sqle,
-				                       		Message = "unable to select generated column values",
-				                       		Sql = selectionSQL.ToString(),
-				                       		EntityName = EntityName,
-				                       		EntityId = id
-				                       	};
-				throw ADOExceptionHelper.Convert(Factory.SQLExceptionConverter, exceptionContext);
+				query.SetParameter(query.NamedParameters[0], id, this.IdentifierType);
 			}
+			else
+			{
+				query.SetParameter(0, id, this.IdentifierType);
+			}
+			query.SetOptionalId(id);
+			query.SetOptionalEntityName(this.EntityName);
+			query.SetOptionalObject(entity);
+			query.SetFlushMode(FlushMode.Never);
+			query.List();
 		}
 
 		public bool HasSubselectLoadableCollections
