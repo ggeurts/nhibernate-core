@@ -19,17 +19,17 @@ namespace NHibernate.Test.DialectTest
 
 			str = d.GetLimitString(new SqlString("SELECT fish.id FROM fish"), new SqlString("111"), new SqlString("222"));
 			Assert.AreEqual(
-				"SELECT fish.id FROM fish ORDER BY CURRENT_TIMESTAMP OFFSET 111 ROWS FETCH FIRST 222 ROWS ONLY",
+				"SELECT fish.id FROM fish ORDER BY 1 OFFSET 111 ROWS FETCH FIRST 222 ROWS ONLY",
 				str.ToString());
 
 			str = d.GetLimitString(new SqlString("SELECT DISTINCT fish_.id FROM fish fish_"), new SqlString("111"), new SqlString("222"));
 			Assert.AreEqual(
-				"SELECT DISTINCT fish_.id FROM fish fish_ ORDER BY CURRENT_TIMESTAMP OFFSET 111 ROWS FETCH FIRST 222 ROWS ONLY",
+				"SELECT DISTINCT fish_.id FROM fish fish_ ORDER BY 1 OFFSET 111 ROWS FETCH FIRST 222 ROWS ONLY",
 				str.ToString());
 
 			str = d.GetLimitString(new SqlString("SELECT DISTINCT fish_.id as ixx9_ FROM fish fish_"), new SqlString("111"), new SqlString("222"));
 			Assert.AreEqual(
-				"SELECT DISTINCT fish_.id as ixx9_ FROM fish fish_ ORDER BY CURRENT_TIMESTAMP OFFSET 111 ROWS FETCH FIRST 222 ROWS ONLY",
+				"SELECT DISTINCT fish_.id as ixx9_ FROM fish fish_ ORDER BY 1 OFFSET 111 ROWS FETCH FIRST 222 ROWS ONLY",
 				str.ToString());
 
 			str = d.GetLimitString(new SqlString("SELECT * FROM fish ORDER BY name"), new SqlString("111"), new SqlString("222"));
@@ -49,12 +49,12 @@ namespace NHibernate.Test.DialectTest
 
 			str = d.GetLimitString(new SqlString("SELECT *, (SELECT COUNT(1) FROM fowl WHERE fish_id = fish.id) AS some_count FROM fish"), new SqlString("111"), new SqlString("222"));
 			Assert.AreEqual(
-				"SELECT *, (SELECT COUNT(1) FROM fowl WHERE fish_id = fish.id) AS some_count FROM fish ORDER BY CURRENT_TIMESTAMP OFFSET 111 ROWS FETCH FIRST 222 ROWS ONLY",
+				"SELECT *, (SELECT COUNT(1) FROM fowl WHERE fish_id = fish.id) AS some_count FROM fish ORDER BY 1 OFFSET 111 ROWS FETCH FIRST 222 ROWS ONLY",
 				str.ToString());
 
 			str = d.GetLimitString(new SqlString("SELECT * FROM fish WHERE scales = ", Parameter.Placeholder), new SqlString("111"), new SqlString("222"));
 			Assert.AreEqual(
-				"SELECT * FROM fish WHERE scales = ? ORDER BY CURRENT_TIMESTAMP OFFSET 111 ROWS FETCH FIRST 222 ROWS ONLY",
+				"SELECT * FROM fish WHERE scales = ? ORDER BY 1 OFFSET 111 ROWS FETCH FIRST 222 ROWS ONLY",
 				str.ToString());
 
 			str = d.GetLimitString(new SqlString("SELECT f.Type, COUNT(DISTINCT f.Name) AS Name FROM Fish f GROUP BY f.Type ORDER BY COUNT(DISTINCT f.Name)"), new SqlString("111"), new SqlString("222"));
@@ -70,7 +70,7 @@ namespace NHibernate.Test.DialectTest
 
 			var str = d.GetLimitString(new SqlString("SELECT * FROM A LEFT JOIN (SELECT top 7 * FROM B ORDER BY name) AS B on A.Name = B.Name"), new SqlString("111"), new SqlString("222"));
 			Assert.AreEqual(
-				"SELECT * FROM A LEFT JOIN (SELECT top 7 * FROM B ORDER BY name) AS B on A.Name = B.Name ORDER BY CURRENT_TIMESTAMP OFFSET 111 ROWS FETCH FIRST 222 ROWS ONLY",
+				"SELECT * FROM A LEFT JOIN (SELECT top 7 * FROM B ORDER BY name) AS B on A.Name = B.Name ORDER BY 1 OFFSET 111 ROWS FETCH FIRST 222 ROWS ONLY",
 				str.ToString());
 		}
 
@@ -89,7 +89,7 @@ namespace NHibernate.Test.DialectTest
 			var d = new MsSql2012Dialect();
 			var limitSqlQuery = d.GetLimitString(new SqlString(" /* criteria query */ SELECT p from lcdtm"), null, new SqlString("2"));
 			Assert.That(limitSqlQuery, Is.Not.Null);
-			Assert.That(limitSqlQuery.ToString(), Is.EqualTo(" /* criteria query */ SELECT p from lcdtm ORDER BY CURRENT_TIMESTAMP OFFSET 0 ROWS FETCH FIRST 2 ROWS ONLY"));
+			Assert.That(limitSqlQuery.ToString(), Is.EqualTo(" /* criteria query */ SELECT p from lcdtm ORDER BY 1 OFFSET 0 ROWS FETCH FIRST 2 ROWS ONLY"));
 		}
 
 		[Test]
@@ -129,7 +129,7 @@ namespace NHibernate.Test.DialectTest
 				)
 				-- Statement that executes the CTE
 				SELECT  ManagerID, EmployeeID, Title, Level
-				FROM    DirectReports ORDER BY CURRENT_TIMESTAMP OFFSET 0 ROWS FETCH FIRST 2 ROWS ONLY";
+				FROM    DirectReports ORDER BY 1 OFFSET 0 ROWS FETCH FIRST 2 ROWS ONLY";
 
 			var d = new MsSql2012Dialect();
 			var limitSqlQuery = d.GetLimitString(new SqlString(SQL), null, new SqlString("2"));
