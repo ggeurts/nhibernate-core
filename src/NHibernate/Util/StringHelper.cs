@@ -57,6 +57,11 @@ namespace NHibernate.Util
 			return buf.ToString();
 		}
 
+		internal static string Join<T>(string separator, IEnumerable<T> objects)
+		{
+			return string.Join(separator, objects);
+		}
+
 		/// <summary>
 		/// 
 		/// </summary>
@@ -489,7 +494,7 @@ namespace NHibernate.Util
 				string[] qualified = new string[len];
 				for (int i = 0; i < len; i++)
 				{
-					qualified[i] = Qualify(prefix, names[i]);
+					qualified[i] = names[i] == null ? null : Qualify(prefix, names[i]);
 				}
 				return qualified;
 			}

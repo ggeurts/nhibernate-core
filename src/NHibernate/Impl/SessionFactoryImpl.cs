@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Security;
 using System.Text;
-using System.Linq;
-
 using NHibernate.Cache;
 using NHibernate.Cfg;
 using NHibernate.Connection;
@@ -491,10 +490,14 @@ namespace NHibernate.Impl
 		public ISession OpenSession(IDbConnection connection, bool flushBeforeCompletionEnabled, bool autoCloseSessionEnabled,
 									ConnectionReleaseMode connectionReleaseMode)
 		{
+#pragma warning disable 618
+			var isInterceptorsBeforeTransactionCompletionIgnoreExceptionsEnabled = settings.IsInterceptorsBeforeTransactionCompletionIgnoreExceptionsEnabled;
+#pragma warning restore 618
+
 			return
 				new SessionImpl(connection, this, true, settings.CacheProvider.NextTimestamp(), interceptor,
 								settings.DefaultEntityMode, flushBeforeCompletionEnabled, autoCloseSessionEnabled,
-								connectionReleaseMode);
+								isInterceptorsBeforeTransactionCompletionIgnoreExceptionsEnabled, connectionReleaseMode);
 		}
 
 		public IEntityPersister GetEntityPersister(string entityName)
@@ -735,7 +738,7 @@ namespace NHibernate.Impl
 			{
 				return false;
 			}
-			if (entityClass.Equals(implementorClass))
+			if (entityClass == implementorClass)
 			{
 				// It is possible to have multiple mappings for the same entity class, but with different entity names.
 				// When querying for a specific entity name, we should only return entities for the requested entity name
@@ -1205,9 +1208,14 @@ namespace NHibernate.Impl
 
 		private SessionImpl OpenSession(IDbConnection connection, bool autoClose, long timestamp, IInterceptor sessionLocalInterceptor)
 		{
+#pragma warning disable 618
+			var isInterceptorsBeforeTransactionCompletionIgnoreExceptionsEnabled = settings.IsInterceptorsBeforeTransactionCompletionIgnoreExceptionsEnabled;
+#pragma warning restore 618
+
 			SessionImpl session = new SessionImpl(connection, this, autoClose, timestamp, sessionLocalInterceptor ?? interceptor,
 												  settings.DefaultEntityMode, settings.IsFlushBeforeCompletionEnabled,
-												  settings.IsAutoCloseSessionEnabled, settings.ConnectionReleaseMode);
+												  settings.IsAutoCloseSessionEnabled, isInterceptorsBeforeTransactionCompletionIgnoreExceptionsEnabled,
+												  settings.ConnectionReleaseMode);
 			if (sessionLocalInterceptor != null)
 			{
 				// NH specific feature
