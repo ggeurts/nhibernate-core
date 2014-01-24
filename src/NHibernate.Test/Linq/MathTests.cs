@@ -20,7 +20,7 @@ namespace NHibernate.Test.Linq
 		protected override void OnSetUp()
 		{
 			base.OnSetUp();
-			_orderLines = db.OrderLines.Take(10).ToList().AsQueryable();
+			_orderLines = db.OrderLines.OrderBy(o => o.Id).Take(10).ToList().AsQueryable();
 		}
 
 		[Test]
@@ -119,7 +119,7 @@ namespace NHibernate.Test.Linq
 				.Select(selector)
 				.ToList();
 
-			var actual = db.OrderLines.Select(selector)
+			var actual = db.OrderLines.OrderBy(o => o.Id).Select(selector)
 				.Take(10)
 				.ToList();
 
