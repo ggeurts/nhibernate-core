@@ -507,7 +507,6 @@
     <Compile Include="Linq\ByMethod\GroupByHavingTests.cs" />
     <Compile Include="Linq\ByMethod\GroupByTests.cs" />
     <Compile Include="Linq\CasingTest.cs" />
-    <Compile Include="Linq\CollectionAssert.cs" />
     <Compile Include="Linq\CharComparisonTests.cs" />
     <Compile Include="Linq\DateTimeTests.cs" />
     <Compile Include="Linq\QueryTimeoutTests.cs" />
@@ -1035,8 +1034,6 @@
     <Compile Include="NHSpecificTest\NH2893\Fixture.cs" />
     <Compile Include="NHSpecificTest\NH2913\CostItem.cs" />
     <Compile Include="NHSpecificTest\NH2913\Fixture.cs" />
-    <Compile Include="NHSpecificTest\NH2960\Entity.cs" />
-    <Compile Include="NHSpecificTest\NH2960\Fixture.cs" />
     <Compile Include="NHSpecificTest\NH2959\Entity.cs" />
     <Compile Include="NHSpecificTest\NH2959\Fixture.cs" />
     <Compile Include="NHSpecificTest\NH2977\FixtureByCode.cs" />
@@ -2984,7 +2981,6 @@
     <EmbeddedResource Include="IdGen\Enhanced\Sequence\HiLo.hbm.xml" />
     <EmbeddedResource Include="IdGen\Enhanced\Sequence\Basic.hbm.xml" />
     <Compile Include="IdGen\Enhanced\Sequence\BasicSequenceTest.cs" />
-    <EmbeddedResource Include="NHSpecificTest\NH2960\Mappings.hbm.xml" />
     <EmbeddedResource Include="NHSpecificTest\NH2951\Mappings.hbm.xml" />
     <EmbeddedResource Include="NHSpecificTest\NH2913\Mappings.hbm.xml">
       <SubType>Designer</SubType>
