@@ -3964,7 +3964,23 @@ namespace NHibernate.Persister.Entity
 			{
 				throw new AssertionFailure("no insert-generated properties");
 			}
-			ProcessGeneratedProperties(id, entity, state, session, sqlInsertGeneratedValuesSelectString, PropertyInsertGenerationInclusions);
+
+			session.Batcher.ExecuteBatch(); //force immediate execution of the insert
+
+			if (loaderName == null)
+			{
+				ProcessGeneratedPropertiesWithGeneratedSql(id, entity, state, session, sqlInsertGeneratedValuesSelectString, PropertyInsertGenerationInclusions);
+			}
+			else
+			{
+				ProcessGeneratedPropertiesWithLoader(id, entity, session);
+
+				// The loader has added the entity to the first-level cache. We must remove
+				// the entity from the first-level cache to avoid problems in the Save or SaveOrUpdate
+				// event listeners, which don't expect the entity to already be present in the 
+				// first-level cache.
+				session.PersistenceContext.RemoveEntity(session.GenerateEntityKey(id, this));
+			}
 		}
 
 		public void ProcessUpdateGeneratedProperties(object id, object entity, object[] state, ISessionImplementor session)
@@ -3973,10 +3989,23 @@ namespace NHibernate.Persister.Entity
 			{
 				throw new AssertionFailure("no update-generated properties");
 			}
-			ProcessGeneratedProperties(id, entity, state, session, sqlUpdateGeneratedValuesSelectString, PropertyUpdateGenerationInclusions);
+
+			session.Batcher.ExecuteBatch(); //force immediate execution of the update
+
+			if (loaderName == null)
+			{
+				ProcessGeneratedPropertiesWithGeneratedSql(id, entity, state, session, sqlUpdateGeneratedValuesSelectString, PropertyUpdateGenerationInclusions);
+			}
+			else
+			{
+				// Remove entity from first-level cache to ensure that loader fetches fresh data from database.
+				// The loader will ensure that the same entity is added back to the first-level cache.
+				session.PersistenceContext.RemoveEntity(session.GenerateEntityKey(id, this));
+				ProcessGeneratedPropertiesWithLoader(id, entity, session);
+			}
 		}
 
-		private void ProcessGeneratedProperties(object id, object entity, object[] state,
+		private void ProcessGeneratedPropertiesWithGeneratedSql(object id, object entity, object[] state,
 				ISessionImplementor session, SqlString selectionSQL, ValueInclusion[] includeds)
 		{
 			session.Batcher.ExecuteBatch(); //force immediate execution of the insert
@@ -4023,6 +4052,24 @@ namespace NHibernate.Persister.Entity
 										};
 				throw ADOExceptionHelper.Convert(Factory.SQLExceptionConverter, exceptionContext);
 			}
+		}
+
+		private void ProcessGeneratedPropertiesWithLoader(object id, object entity, ISessionImplementor session)
+		{
+			var query = (AbstractQueryImpl)session.GetNamedQuery(loaderName);
+			if (query.HasNamedParameters)
+			{
+				query.SetParameter(query.NamedParameters[0], id, this.IdentifierType);
+			}
+			else
+			{
+				query.SetParameter(0, id, this.IdentifierType);
+			}
+			query.SetOptionalId(id);
+			query.SetOptionalEntityName(this.EntityName);
+			query.SetOptionalObject(entity);
+			query.SetFlushMode(FlushMode.Never);
+			query.List();
 		}
 
 		public bool HasSubselectLoadableCollections
