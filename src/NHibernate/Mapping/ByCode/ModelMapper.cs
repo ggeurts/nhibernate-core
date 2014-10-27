@@ -557,7 +557,7 @@ namespace NHibernate.Mapping.ByCode
 			{
 				defaultAssemblyName = firstType.Assembly.GetName().Name;
 			}
-			if (firstType != null && typeToMap.All(t => t.Namespace.Equals(firstType.Namespace)))
+			if (firstType != null && typeToMap.All(t => t.Namespace == firstType.Namespace))
 			{
 				defaultNamespace = firstType.Namespace;
 			}
@@ -1151,9 +1151,12 @@ namespace NHibernate.Mapping.ByCode
 
 		protected MemberInfo GetComponentParentReferenceProperty(IEnumerable<MemberInfo> persistentProperties, System.Type propertiesContainerType)
 		{
-			return modelInspector.IsComponent(propertiesContainerType)
-			       	? persistentProperties.FirstOrDefault(pp => pp.GetPropertyOrFieldType() == propertiesContainerType)
-			       	: null;
+			// if container is component, then all properties referencing container are assumed parent reference
+			if (modelInspector.IsComponent(propertiesContainerType))
+				return persistentProperties.FirstOrDefault(pp => pp.GetPropertyOrFieldType() == propertiesContainerType);
+
+			// return the first non-many-to-one property
+			return persistentProperties.Where(pp => !modelInspector.IsManyToOne(pp)).FirstOrDefault(pp => pp.GetPropertyOrFieldType() == propertiesContainerType);
 		}
 
 		private void MapBag(MemberInfo member, PropertyPath propertyPath, System.Type propertyType, ICollectionPropertiesContainerMapper propertiesContainer,
@@ -1277,9 +1280,19 @@ namespace NHibernate.Mapping.ByCode
 			{
 				return new OneToManyRelationMapper(propertyPath, ownerType, collectionElementType, modelInspector, customizerHolder, this);
 			}
-			if (modelInspector.IsManyToMany(property))
+			//NH-3667 & NH-3102
+			//check if property is really a many-to-many: as detected by modelInspector.IsManyToMany and also the collection type is an entity
+			if (modelInspector.IsManyToMany(property) == true)
 			{
-				return new ManyToManyRelationMapper(propertyPath, customizerHolder, this);
+				if (property.GetPropertyOrFieldType().IsGenericCollection() == true)
+				{
+					var args = property.GetPropertyOrFieldType().GetGenericArguments();
+
+					if (modelInspector.IsEntity(args.Last()) == true)
+					{
+						return new ManyToManyRelationMapper(propertyPath, customizerHolder, this);
+					}
+				}
 			}
 			if (modelInspector.IsComponent(collectionElementType))
 			{

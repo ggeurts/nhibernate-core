@@ -109,7 +109,7 @@ namespace NHibernate.Impl
 
 			MultipleQueriesCacheAssembler assembler = new MultipleQueriesCacheAssembler(resultTypesList);
 			QueryParameters combinedParameters = CreateCombinedQueryParameters();
-			QueryKey key = new QueryKey(session.Factory, SqlString, combinedParameters, filterKeys)
+			QueryKey key = new QueryKey(session.Factory, SqlString, combinedParameters, filterKeys, null)
 				.SetFirstRows(firstRows)
 				.SetMaxRows(maxRows);
 
@@ -247,7 +247,7 @@ namespace NHibernate.Impl
 					for (int i = 0; i < loaders.Count; i++)
 					{
 						CriteriaLoader loader = loaders[i];
-						loader.InitializeEntitiesAndCollections(hydratedObjects[i], reader, session, false);
+						loader.InitializeEntitiesAndCollections(hydratedObjects[i], reader, session, session.DefaultReadOnly);
 
 						if (createSubselects[i])
 						{

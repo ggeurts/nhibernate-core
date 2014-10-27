@@ -247,6 +247,7 @@
     <Compile Include="EngineTest\NativeSQLQueryScalarReturnTest.cs" />
     <Compile Include="EngineTest\NativeSQLQuerySpecificationTest.cs" />
     <Compile Include="Events\DisposableListenersTest.cs" />
+    <Compile Include="ExceptionsTest\FbExceptionConverterExample.cs" />
     <Compile Include="ExceptionsTest\NullQueryTest.cs" />
     <Compile Include="ExpressionTest\RestrictionsFixture.cs" />
     <Compile Include="Criteria\Student.cs" />
@@ -2334,7 +2335,6 @@
     <Compile Include="TypesTest\TimeAsTimeSpanClass.cs" />
     <Compile Include="TypesTest\TimeAsTimeSpanTypeFixture.cs" />
     <Compile Include="TypesTest\TimeSpanClass.cs" />
-    <Compile Include="TypesTest\Decima2lTypeFixture.cs" />
     <Compile Include="TypesTest\DateTimeTypeFixture.cs" />
     <Compile Include="TypesTest\DecimalClass.cs" />
     <Compile Include="TypesTest\DecimalTypeFixture.cs" />

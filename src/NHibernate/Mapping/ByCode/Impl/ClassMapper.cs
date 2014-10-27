@@ -59,6 +59,10 @@ namespace NHibernate.Mapping.ByCode.Impl
 		}
 
 		#region Implementation of IClassMapper
+		public void OptimisticLock(OptimisticLockMode mode)
+		{
+			classMapping.optimisticlock = (HbmOptimisticLockMode)Enum.Parse(typeof(OptimisticLockMode), mode.ToString());
+		}
 
 		public void Id(Action<IIdMapper> mapper)
 		{
@@ -166,6 +170,11 @@ namespace NHibernate.Mapping.ByCode.Impl
 			classMapping.table = tableName;
 		}
 
+		public void Check(string check)
+		{
+			classMapping.check = check;
+		}
+
 		public void Catalog(string catalogName)
 		{
 			classMapping.catalog = catalogName;
@@ -251,6 +260,10 @@ namespace NHibernate.Mapping.ByCode.Impl
 			splitMapping(splitGroup);
 		}
 
+		public void Polymorphism(PolymorphismType type)
+		{
+			classMapping.polymorphism = (HbmPolymorphismType) Enum.Parse(typeof(HbmPolymorphismType), type.ToString());
+		}
 		#endregion
 
 		#region Implementation of IEntityAttributesMapper

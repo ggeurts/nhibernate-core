@@ -60,11 +60,11 @@
 		effectively SP0).
 	-->
 
-	<property name="project.version" value="4.0.0.Alpha1" overwrite="false" />
+	<property name="project.version" value="4.0.1.GA" overwrite="false" />
 	
 	<!-- This version number should be changed if, but only if, there are incompatible
-			 changes compared to the previous version. -->
-	<property name="project.default-assembly-version" value="4.0.0.1000" overwrite="false" />
+	     changes compared to the previous version. -->
+	<property name="project.default-assembly-version" value="4.0.0.4000" overwrite="false" />
 
 	<!-- Compute short project version (major.minor) using a regex -->
 	<regex input="${project.version}" pattern="^(?'shortversion'\d+\.\d+)" />
@@ -205,7 +205,6 @@
 		<!-- merge should work with 4.0 when compiling for 4.0 -->
 		<property name="merge.targetplatform" value="v4" />
 		<property name="referenceassemblies.dir" value="${environment::get-folder-path('ProgramFiles')}\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0" />
-		<property name="referenceassemblies.dir" value="${environment::get-folder-path('ProgramFilesX86')}\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0" unless="${directory::exists(referenceassemblies.dir)}" />
 	</target>
 	
 	<target name="set-net-3.5-framework-configuration">
@@ -275,15 +274,15 @@
 	<target name="common.find-ndoc">
 		<property name="ndoc-console" value="${tools.dir}/ndoc/NDocConsole.exe" />
 	</target>
-	
-	<target name="nuget.set-properties">
-		<property name="nuget.nupackages.relative-dir" value="nuget_gallery" />
-		<!-- The nuget.workingdir is the directory from where all *.nuspec files will work. 
-		This is to simplify the compilation of *.nuspec.template files (see section 'files')-->
-		<property name="nuget.workingdir" value="${build.dir}/tmp_nugetdeploy" />
+  
+  <target name="nuget.set-properties">
+    <property name="nuget.nupackages.relative-dir" value="nuget_gallery" />
+    <!-- The nuget.workingdir is the directory from where all *.nuspec files will work. 
+    This is to simplify the compilation of *.nuspec.template files (see section 'files')-->
+    <property name="nuget.workingdir" value="${build.dir}/tmp_nugetdeploy" />
 
-		<property name="nuget.nupackages.dir" value="${build.dir}/${nuget.nupackages.relative-dir}" />
-		<property name="nuget.nupackages.pushbatfile" value="${nuget.nupackages.dir}/NuGetPush.bat" />
-	</target>
+    <property name="nuget.nupackages.dir" value="${build.dir}/${nuget.nupackages.relative-dir}" />
+    <property name="nuget.nupackages.pushbatfile" value="${nuget.nupackages.dir}/NuGetPush.bat" />
+  </target>
 
 </project>

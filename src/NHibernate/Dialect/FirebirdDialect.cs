@@ -6,9 +6,9 @@ using NHibernate.Dialect.Function;
 using NHibernate.Dialect.Schema;
 using NHibernate.Engine;
 using NHibernate.SqlCommand;
+using NHibernate.SqlTypes;
 using NHibernate.Type;
 using Environment = NHibernate.Cfg.Environment;
-using NHibernate.SqlTypes;
 
 namespace NHibernate.Dialect
 {
@@ -38,6 +38,7 @@ namespace NHibernate.Dialect
 
 		public FirebirdDialect()
 		{
+			RegisterKeywords();
 			RegisterColumnTypes();
 			RegisterFunctions();
 			DefaultProperties[Environment.ConnectionDriver] = "NHibernate.Driver.FirebirdClientDriver";
@@ -268,9 +269,12 @@ namespace NHibernate.Dialect
 			}
 		}
 
-		#region Private Members
+		protected virtual void RegisterKeywords()
+		{
+			RegisterKeyword("date");
+		}
 
-		private void RegisterColumnTypes()
+		protected virtual void RegisterColumnTypes()
 		{
 			RegisterColumnType(DbType.AnsiStringFixedLength, "CHAR(255)");
 			RegisterColumnType(DbType.AnsiStringFixedLength, 8000, "CHAR($l)");
@@ -300,7 +304,7 @@ namespace NHibernate.Dialect
 			RegisterColumnType(DbType.Time, "TIME");
 		}
 
-		private void RegisterFunctions()
+		protected virtual void RegisterFunctions()
 		{
 			OverrideStandardHQLFunctions();
 			RegisterFirebirdServerEmbeddedFunctions();
@@ -317,6 +321,7 @@ namespace NHibernate.Dialect
 			RegisterFunction("mod", new StandardSafeSQLFunction("mod", NHibernateUtil.Double, 2));
 			RegisterFunction("str", new SQLFunctionTemplate(NHibernateUtil.String, "cast(?1 as VARCHAR(255))"));
 			RegisterFunction("sysdate", new CastedFunction("today", NHibernateUtil.Date));
+			RegisterFunction("date", new SQLFunctionTemplate(NHibernateUtil.Date, "cast(?1 as date)"));
 		}
 
 		private void RegisterFirebirdServerEmbeddedFunctions()
@@ -391,6 +396,7 @@ namespace NHibernate.Dialect
 			RegisterFunction("substrlen", new StandardSQLFunction("substrlen", NHibernateUtil.Int16));
 			RegisterFunction("locate", new PositionFunction());
 			RegisterFunction("replace", new StandardSafeSQLFunction("replace", NHibernateUtil.String, 3));
+			RegisterFunction("left", new StandardSQLFunction("left"));
 		}
 
 		private void RegisterBlobFunctions()
@@ -417,7 +423,5 @@ namespace NHibernate.Dialect
 		{
 			return dbType == DbType.Decimal && precision > MAX_DECIMAL_PRECISION;
 		}
-
-		#endregion
 	}
 }

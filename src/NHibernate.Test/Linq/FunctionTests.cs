@@ -47,12 +47,9 @@ namespace NHibernate.Test.Linq
 		[Test]
 		public void SubstringFunction2()
 		{
-			if (Dialect is FirebirdDialect)
-				Assert.Ignore("Firebird before 2.0 only support integer literals for substring() - NH generates parameters.");
-
 			var query = (from e in db.Employees
-						 where e.FirstName.Substring(0, 2) == "An"
-						 select e).ToList();
+				where e.FirstName.Substring(0, 2) == "An"
+				select e).ToList();
 
 			Assert.That(query.Count, Is.EqualTo(2));
 		}
@@ -60,12 +57,9 @@ namespace NHibernate.Test.Linq
 		[Test]
 		public void SubstringFunction1()
 		{
-			if (Dialect is FirebirdDialect)
-				Assert.Ignore("Firebird before 2.0 only support integer literals for substring() - NH generates parameters.");
-
 			var query = (from e in db.Employees
-						 where e.FirstName.Substring(3) == "rew"
-						 select e).ToList();
+				where e.FirstName.Substring(3) == "rew"
+				select e).ToList();
 
 			Assert.That(query.Count, Is.EqualTo(1));
 			Assert.That(query[0].FirstName, Is.EqualTo("Andrew"));
@@ -180,18 +174,14 @@ namespace NHibernate.Test.Linq
 		[Test]
 		public void Trim()
 		{
-			List<int> idsToDelete = new List<int>();
-			try
+			using (session.BeginTransaction())
 			{
 				AnotherEntity ae1 = new AnotherEntity {Input = " hi "};
 				AnotherEntity ae2 = new AnotherEntity {Input = "hi"};
 				AnotherEntity ae3 = new AnotherEntity {Input = "heh"};
 				session.Save(ae1);
-				idsToDelete.Add(ae1.Id);
 				session.Save(ae2);
-				idsToDelete.Add(ae2.Id);
 				session.Save(ae3);
-				idsToDelete.Add(ae3.Id);
 				session.Flush();
 
 				Assert.AreEqual(2, session.Query<AnotherEntity>().Where(e => e.Input.Trim() == "hi").Count());
@@ -201,19 +191,15 @@ namespace NHibernate.Test.Linq
 				Assert.AreEqual(1, session.Query<AnotherEntity>().Where(e => e.Input.Trim('h') == "e").Count());
 				Assert.AreEqual(1, session.Query<AnotherEntity>().Where(e => e.Input.TrimStart('h') == "eh").Count());
 				Assert.AreEqual(1, session.Query<AnotherEntity>().Where(e => e.Input.TrimEnd('h') == "he").Count());
-			}
-			finally
-			{
-				foreach (int idToDelete in idsToDelete)
-					session.Delete(session.Get<AnotherEntity>(idToDelete));
-				session.Flush();
+
+				// Let it rollback to get rid of temporary changes.
 			}
 		}
 
-		[Test, Ignore()]
+		[Test, Ignore]
 		public void TrimTrailingWhitespace()
 		{
-			try
+			using (session.BeginTransaction())
 			{
 				session.Save(new AnotherEntity {Input = " hi "});
 				session.Save(new AnotherEntity {Input = "hi"});
@@ -221,11 +207,8 @@ namespace NHibernate.Test.Linq
 				session.Flush();
 
 				Assert.AreEqual(TestDialect.IgnoresTrailingWhitespace ? 2 : 1, session.Query<AnotherEntity>().Where(e => e.Input.TrimStart() == "hi ").Count());
-			}
-			finally
-			{
-				session.Delete("from AnotherEntity e where e.Id > 5");
-				session.Flush();
+
+				// Let it rollback to get rid of temporary changes.
 			}
 		}
 
