@@ -1,5 +1,5 @@
 using System;
-using System.Data;
+using System.Data.Common;
 using NHibernate.Engine;
 using NHibernate.Type;
 
@@ -70,28 +70,28 @@ namespace NHibernate.UserTypes
 		int GetHashCode(object x);
 
 		/// <summary>
-		/// Retrieve an instance of the mapped class from a IDataReader. Implementors
+		/// Retrieve an instance of the mapped class from a DbDataReader. Implementors
 		/// should handle possibility of null values.
 		/// </summary>
-		/// <param name="dr">IDataReader</param>
+		/// <param name="dr">DbDataReader</param>
 		/// <param name="names">the column names</param>
 		/// <param name="session"></param>
 		/// <param name="owner">the containing entity</param>
 		/// <returns></returns>
-		object NullSafeGet(IDataReader dr, string[] names, ISessionImplementor session, object owner);
+		object NullSafeGet(DbDataReader dr, string[] names, ISessionImplementor session, object owner);
 
-	    /// <summary>
-	    /// Write an instance of the mapped class to a prepared statement.
-	    /// Implementors should handle possibility of null values.
-	    /// A multi-column type should be written to parameters starting from index.
-	    /// If a property is not settable, skip it and don't increment the index.
-	    /// </summary>
-	    /// <param name="cmd"></param>
-	    /// <param name="value"></param>
-	    /// <param name="index"></param>
-	    /// <param name="settable"></param>
-	    /// <param name="session"></param>
-	    void NullSafeSet(IDbCommand cmd, object value, int index, bool[] settable, ISessionImplementor session);
+		/// <summary>
+		/// Write an instance of the mapped class to a prepared statement.
+		/// Implementors should handle possibility of null values.
+		/// A multi-column type should be written to parameters starting from index.
+		/// If a property is not settable, skip it and don't increment the index.
+		/// </summary>
+		/// <param name="cmd"></param>
+		/// <param name="value"></param>
+		/// <param name="index"></param>
+		/// <param name="settable"></param>
+		/// <param name="session"></param>
+		void NullSafeSet(DbCommand cmd, object value, int index, bool[] settable, ISessionImplementor session);
 
 		/// <summary>
 		/// Return a deep copy of the persistent state, stopping at entities and at collections.

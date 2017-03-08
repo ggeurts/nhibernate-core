@@ -1,4 +1,4 @@
-using NUnit.Framework;
+﻿using NUnit.Framework;
 
 namespace NHibernate.Test.NHSpecificTest.NH2960
 {

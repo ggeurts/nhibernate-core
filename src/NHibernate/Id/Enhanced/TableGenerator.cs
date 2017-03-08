@@ -1,6 +1,7 @@
 ﻿using System;
-using System.Data;
+using System.Data.Common;
 using System.Collections.Generic;
+using System.Data;
 using System.Runtime.CompilerServices;
 using NHibernate.Engine;
 using NHibernate.Mapping;
@@ -239,11 +240,11 @@ namespace NHibernate.Id.Enhanced
 
 		#endregion
 
-
 		/// <summary>
 		///  Determine the table name to use for the generator values. Called during configuration.
 		/// </summary>
 		/// <param name="parms">The parameters supplied in the generator config (plus some standard useful extras).</param>
+		/// <param name="dialect">The dialect</param>
 		protected string DetermineGeneratorTableName(IDictionary<string, string> parms, Dialect.Dialect dialect)
 		{
 			string name = PropertiesHelper.GetString(TableParam, parms, DefaultTable);
@@ -277,6 +278,7 @@ namespace NHibernate.Id.Enhanced
 		/// Called during configuration.
 		/// </summary>
 		/// <param name="parms">The parameters supplied in the generator config (plus some standard useful extras).</param>
+		/// <param name="dialect">The <see cref="Dialect.Dialect"/></param>
 		protected string DetermineSegmentColumnName(IDictionary<string, string> parms, Dialect.Dialect dialect)
 		{
 			// NHibernate doesn't seem to have anything resembling this ObjectNameNormalizer. Ignore that for now.
@@ -354,11 +356,11 @@ namespace NHibernate.Id.Enhanced
 		protected void BuildSelectQuery(Dialect.Dialect dialect)
 		{
 			const string alias = "tbl";
-			SqlStringBuilder selectBuilder = new SqlStringBuilder(100);
-			selectBuilder.Add("select ").Add(StringHelper.Qualify(alias, ValueColumnName))
-				.Add(" from " + TableName + " " + alias + " where ")
-				.Add(StringHelper.Qualify(alias, SegmentColumnName) + " = ")
-				.AddParameter().Add("  ");
+			SqlString select = new SqlString(
+				"select ", StringHelper.Qualify(alias, ValueColumnName), 
+				" from ", TableName, " ", alias,
+				" where ", StringHelper.Qualify(alias, SegmentColumnName), " = ", Parameter.Placeholder, 
+				"  ");
 
 			Dictionary<string, LockMode> lockOptions = new Dictionary<string, LockMode>();
 			lockOptions[alias] = LockMode.Upgrade;
@@ -366,7 +368,7 @@ namespace NHibernate.Id.Enhanced
 			Dictionary<string, string[]> updateTargetColumnsMap = new Dictionary<string, string[]>();
 			updateTargetColumnsMap[alias] = new[] { ValueColumnName };
 
-			selectQuery = dialect.ApplyLocksToSql(selectBuilder.ToSqlString(), lockOptions, updateTargetColumnsMap);
+			selectQuery = dialect.ApplyLocksToSql(select, lockOptions, updateTargetColumnsMap);
 
 			selectParameterTypes = new[] { SqlTypes.SqlTypeFactory.GetAnsiString(SegmentValueLength) };
 		}
@@ -374,13 +376,11 @@ namespace NHibernate.Id.Enhanced
 
 		protected void BuildUpdateQuery()
 		{
-			SqlStringBuilder builder = new SqlStringBuilder(100);
-			builder.Add("update " + TableName)
-				.Add(" set ").Add(ValueColumnName).Add(" = ").AddParameter()
-				.Add(" where ").Add(ValueColumnName).Add(" = ").AddParameter()
-				.Add(" and ").Add(SegmentColumnName).Add(" = ").AddParameter();
-
-			updateQuery = builder.ToSqlString();
+			updateQuery = new SqlString(
+				"update ", TableName,
+				" set ", ValueColumnName, " = ", Parameter.Placeholder,
+				" where ", ValueColumnName, " = ", Parameter.Placeholder,
+				" and ", SegmentColumnName, " = ", Parameter.Placeholder);
 			updateParameterTypes = new[]
 			{
 				SqlTypes.SqlTypeFactory.Int64,
@@ -392,12 +392,10 @@ namespace NHibernate.Id.Enhanced
 
 		protected void BuildInsertQuery()
 		{
-			SqlStringBuilder builder = new SqlStringBuilder(100);
-			builder.Add("insert into " + TableName)
-				.Add(" (" + SegmentColumnName + ", " + ValueColumnName + ") ")
-				.Add(" values (").AddParameter().Add(", ").AddParameter().Add(")");
-
-			insertQuery = builder.ToSqlString();
+			insertQuery = new SqlString(
+				"insert into ", TableName,
+				" (", SegmentColumnName, ", ", ValueColumnName, ") ",
+				" values (", Parameter.Placeholder, ", ", Parameter.Placeholder, ")");
 			insertParameterTypes = new[] {
 				SqlTypes.SqlTypeFactory.GetAnsiString(SegmentValueLength),
 				SqlTypes.SqlTypeFactory.Int64
@@ -434,7 +432,7 @@ namespace NHibernate.Id.Enhanced
 		}
 
 
-		public override object DoWorkInCurrentTransaction(ISessionImplementor session, System.Data.IDbConnection conn, System.Data.IDbTransaction transaction)
+		public override object DoWorkInCurrentTransaction(ISessionImplementor session, DbConnection conn, DbTransaction transaction)
 		{
 			long result;
 			int updatedRows;
@@ -445,13 +443,13 @@ namespace NHibernate.Id.Enhanced
 
 				try
 				{
-					IDbCommand selectCmd = session.Factory.ConnectionProvider.Driver.GenerateCommand(CommandType.Text, selectQuery, selectParameterTypes);
+					var selectCmd = session.Factory.ConnectionProvider.Driver.GenerateCommand(CommandType.Text, selectQuery, selectParameterTypes);
 					using (selectCmd)
 					{
 						selectCmd.Connection = conn;
 						selectCmd.Transaction = transaction;
 						string s = selectCmd.CommandText;
-						((IDataParameter)selectCmd.Parameters[0]).Value = SegmentValue;
+						selectCmd.Parameters[0].Value = SegmentValue;
 						PersistentIdGeneratorParmsNames.SqlStatementLogger.LogCommand(selectCmd, FormatStyle.Basic);
 
 						selectedValue = selectCmd.ExecuteScalar();
@@ -461,14 +459,14 @@ namespace NHibernate.Id.Enhanced
 					{
 						result = InitialValue;
 
-						IDbCommand insertCmd = session.Factory.ConnectionProvider.Driver.GenerateCommand(CommandType.Text, insertQuery, insertParameterTypes);
+						var insertCmd = session.Factory.ConnectionProvider.Driver.GenerateCommand(CommandType.Text, insertQuery, insertParameterTypes);
 						using (insertCmd)
 						{
 							insertCmd.Connection = conn;
 							insertCmd.Transaction = transaction;
 
-							((IDataParameter)insertCmd.Parameters[0]).Value = SegmentValue;
-							((IDataParameter)insertCmd.Parameters[1]).Value = result;
+							insertCmd.Parameters[0].Value = SegmentValue;
+							insertCmd.Parameters[1].Value = result;
 
 							PersistentIdGeneratorParmsNames.SqlStatementLogger.LogCommand(insertCmd, FormatStyle.Basic);
 							insertCmd.ExecuteNonQuery();
@@ -488,16 +486,16 @@ namespace NHibernate.Id.Enhanced
 
 				try
 				{
-					IDbCommand updateCmd = session.Factory.ConnectionProvider.Driver.GenerateCommand(CommandType.Text, updateQuery, updateParameterTypes);
+					var updateCmd = session.Factory.ConnectionProvider.Driver.GenerateCommand(CommandType.Text, updateQuery, updateParameterTypes);
 					using (updateCmd)
 					{
 						updateCmd.Connection = conn;
 						updateCmd.Transaction = transaction;
 
 						int increment = Optimizer.ApplyIncrementSizeToSourceValues ? IncrementSize : 1;
-						((IDataParameter)updateCmd.Parameters[0]).Value = result + increment;
-						((IDataParameter)updateCmd.Parameters[1]).Value = result;
-						((IDataParameter)updateCmd.Parameters[2]).Value = SegmentValue;
+						updateCmd.Parameters[0].Value = result + increment;
+						updateCmd.Parameters[1].Value = result;
+						updateCmd.Parameters[2].Value = SegmentValue;
 						PersistentIdGeneratorParmsNames.SqlStatementLogger.LogCommand(updateCmd, FormatStyle.Basic);
 						updatedRows = updateCmd.ExecuteNonQuery();
 					}

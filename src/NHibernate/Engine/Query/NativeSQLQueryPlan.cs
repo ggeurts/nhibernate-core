@@ -2,12 +2,13 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Linq;
 using NHibernate.Action;
 using NHibernate.Engine.Query.Sql;
 using NHibernate.Event;
 using NHibernate.Exceptions;
-using NHibernate.Hql.Classic;
+using NHibernate.Hql;
 using NHibernate.Impl;
 using NHibernate.Loader.Custom.Sql;
 using NHibernate.Param;
@@ -76,7 +77,7 @@ namespace NHibernate.Engine.Query
 				var sqlParametersList = sql.GetParameters().ToList();
 				SqlType[] sqlTypes = parametersSpecifications.GetQueryParameterTypes(sqlParametersList, session.Factory);
 				
-				IDbCommand ps = session.Batcher.PrepareCommand(CommandType.Text, sql, sqlTypes);
+				var ps = session.Batcher.PrepareCommand(CommandType.Text, sql, sqlTypes);
 
 				try
 				{
@@ -125,9 +126,8 @@ namespace NHibernate.Engine.Query
 			Dialect.Dialect dialect = session.Factory.Dialect;
 			string symbols = ParserHelper.HqlSeparators + dialect.OpenQuote + dialect.CloseQuote;
 
-			var originSql = sqlString.Compact();
 			var result = new SqlStringBuilder();
-			foreach (var sqlPart in originSql)
+			foreach (var sqlPart in sqlString)
 			{
 				var parameter = sqlPart as Parameter;
 				if (parameter != null)
@@ -188,7 +188,7 @@ namespace NHibernate.Engine.Query
 					}
 				}
 			}
-			return result.ToSqlString().Compact();
+			return result.ToSqlString();
 		}
 	}
 }

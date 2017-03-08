@@ -236,7 +236,7 @@
 	</sql-query>
 
 	<sql-query name="organization-using-column-names" resultset-ref="org-description">
-		<!--  equal to "organizationpropertyreturn" but since no {} nor return-property are used hibernate will fallback to use the columns directly from the mapping -->
+		<!--  equal to "organization-using-manual-aliases" but since no {} nor return-property are used hibernate will fallback to use the columns directly from the mapping -->
 		SELECT org.ORGID as ORGID,
 		org.NAME as NAME,
 		emp.EMPLOYER as EMPLOYER,
@@ -252,7 +252,7 @@
 	</sql-query>
 
 	<sql-query name="organization-using-column-names-and-manual-aliases">
-		<!--  equal to "organizationpropertyreturn" but will default to use columns directly from the mapping for properties without return-property element -->
+		<!--  equal to "organization-using-manual-aliases" but will default to use columns directly from the mapping for properties without return-property element -->
 		<return alias="org" class="Organization">
 			<return-property name="id" column="ORGANISATION_ID"/>
 		</return>

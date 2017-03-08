@@ -1,10 +1,11 @@
-using Iesi.Collections.Generic;
+using System.Collections.Generic;
 using log4net;
 using NHibernate.Criterion;
 using NUnit.Framework;
 using System;
 using System.Collections;
 using System.Data;
+using System.Data.Common;
 
 namespace NHibernate.Test.Join
 {
@@ -160,7 +161,7 @@ namespace NHibernate.Test.Join
 				s.Flush();
 				s.Clear();
 
-				IDbCommand cmd = s.Connection.CreateCommand();
+				var cmd = s.Connection.CreateCommand();
 				tx.Enlist(cmd);
 				cmd.CommandText = "select count(*) from phone where phone_id = " + p.Id.ToString();
 				cmd.CommandType = CommandType.Text;
@@ -268,7 +269,7 @@ namespace NHibernate.Test.Join
 				long personId = p.Id;
 				s.Delete(p);
 
-				IDbCommand cmd = s.Connection.CreateCommand();
+				var cmd = s.Connection.CreateCommand();
 				tx.Enlist(cmd);
 				cmd.CommandText = string.Format(
 					"select count(stuff_id) from inversed_stuff where stuff_id = {0}",
@@ -277,7 +278,7 @@ namespace NHibernate.Test.Join
 				Int64 count = Convert.ToInt64(cmd.ExecuteScalar());
 				Assert.AreEqual(1, count, "Row from an inverse <join> was deleted.");
 
-				IDbCommand cmd2 = s.Connection.CreateCommand();
+				var cmd2 = s.Connection.CreateCommand();
 				tx.Enlist(cmd2);
 				cmd2.CommandText = string.Format(
 					"select StuffName from inversed_stuff where stuff_id = {0}",
@@ -302,7 +303,7 @@ namespace NHibernate.Test.Join
 			p.Country = "Canada";
 			p.HomePhone = "555-1234";
 			p.BusinessPhone = "555-4321";
-			p.OthersPhones = new HashedSet<string> {"555-9876", "555-6789"};
+			p.OthersPhones = new HashSet<string> {"555-9876", "555-6789"};
 			return p;
 		}
 

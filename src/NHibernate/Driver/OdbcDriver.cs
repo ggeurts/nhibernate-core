@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Data.Odbc;
-using NHibernate.SqlCommand;
 using NHibernate.SqlTypes;
+using NHibernate.Util;
+using Environment = NHibernate.Cfg.Environment;
 
 namespace NHibernate.Driver
 {
@@ -14,16 +17,29 @@ namespace NHibernate.Driver
 	/// </remarks>
 	public class OdbcDriver : DriverBase
 	{
-		public OdbcDriver()
+		private static readonly IInternalLogger Log = LoggerProvider.LoggerFor(typeof(OdbcDriver));
+
+		private byte? _dbDateTimeScale;
+
+
+		public override void Configure(IDictionary<string, string> settings)
 		{
+			base.Configure(settings);
+
+			// Explicit scale for DbType.DateTime. Seems required for at least MS SQL Server 2008+.
+			_dbDateTimeScale = PropertiesHelper.GetByte(Environment.OdbcDateTimeScale, settings, null);
+			if (_dbDateTimeScale != null && Log.IsInfoEnabled)
+			{
+				Log.Info(string.Format("Will use scale {0} for DbType.DateTime parameters.", _dbDateTimeScale));
+			}
 		}
 
-		public override IDbConnection CreateConnection()
+		public override DbConnection CreateConnection()
 		{
 			return new OdbcConnection();
 		}
 
-		public override IDbCommand CreateCommand()
+		public override DbCommand CreateCommand()
 		{
 			return new OdbcCommand();
 		}
@@ -43,8 +59,11 @@ namespace NHibernate.Driver
 			get { return String.Empty; }
 		}
 
-		protected static void SetVariableLengthParameterSize(IDbDataParameter dbParam, SqlType sqlType)
+		private void SetVariableLengthParameterSize(DbParameter dbParam, SqlType sqlType)
 		{
+			if (Equals(sqlType, SqlTypeFactory.DateTime) && _dbDateTimeScale != null)
+				((IDbDataParameter)dbParam).Scale = _dbDateTimeScale.Value;
+
 			// Override the defaults using data from SqlType.
 			if (sqlType.LengthDefined)
 			{
@@ -53,27 +72,15 @@ namespace NHibernate.Driver
 
 			if (sqlType.PrecisionDefined)
 			{
-				dbParam.Precision = sqlType.Precision;
-				dbParam.Scale = sqlType.Scale;
+				((IDbDataParameter)dbParam).Precision = sqlType.Precision;
+				((IDbDataParameter)dbParam).Scale = sqlType.Scale;
 			}
 		}
 
-		public static void SetParameterSizes(IDataParameterCollection parameters, SqlType[] parameterTypes)
+		protected override void InitializeParameter(DbParameter dbParam, string name, SqlType sqlType)
 		{
-			for (int i = 0; i < parameters.Count; i++)
-			{
-				SetVariableLengthParameterSize((IDbDataParameter)parameters[i], parameterTypes[i]);
-			}
+			base.InitializeParameter(dbParam, name, sqlType);
+			SetVariableLengthParameterSize(dbParam, sqlType);
 		}
-
-		public override IDbCommand GenerateCommand(CommandType type, SqlString sqlString, SqlType[] parameterTypes)
-		{
-			IDbCommand command = base.GenerateCommand(type, sqlString, parameterTypes);
-
-			SetParameterSizes(command.Parameters, parameterTypes);
-
-			return command;
-		}
-
 	}
 }

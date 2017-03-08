@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.SqlClient;
+using System.IO;
 using NHibernate.AdoNet;
 using NHibernate.Bytecode;
 using NHibernate.Cache;
@@ -7,7 +8,8 @@ using NHibernate.Cfg;
 using NHibernate.Dialect;
 using NHibernate.Driver;
 using NHibernate.Exceptions;
-using NHibernate.Hql.Classic;
+using NHibernate.Hql.Ast.ANTLR;
+using NHibernate.Linq;
 using NHibernate.Type;
 using NUnit.Framework;
 
@@ -36,7 +38,7 @@ namespace NHibernate.Test.CfgTest.Loquacious
 				.Proxy
 					.DisableValidation()
 					.Through<DefaultProxyFactoryFactory>()
-				.ParsingHqlThrough<ClassicQueryTranslatorFactory>()
+				.ParsingHqlThrough<ASTQueryTranslatorFactory>()
 				.Mapping
 					.UsingDefaultCatalog("MyCatalog")
 					.UsingDefaultSchema("MySche")
@@ -72,7 +74,7 @@ namespace NHibernate.Test.CfgTest.Loquacious
 			Assert.That(cfg.Properties[Environment.CollectionTypeFactoryClass], Is.EqualTo(typeof(DefaultCollectionTypeFactory).AssemblyQualifiedName));
 			Assert.That(cfg.Properties[Environment.UseProxyValidator], Is.EqualTo("false"));
 			Assert.That(cfg.Properties[Environment.ProxyFactoryFactoryClass], Is.EqualTo(typeof(DefaultProxyFactoryFactory).AssemblyQualifiedName));
-			Assert.That(cfg.Properties[Environment.QueryTranslator], Is.EqualTo(typeof(ClassicQueryTranslatorFactory).AssemblyQualifiedName));
+			Assert.That(cfg.Properties[Environment.QueryTranslator], Is.EqualTo(typeof(ASTQueryTranslatorFactory).AssemblyQualifiedName));
 			Assert.That(cfg.Properties[Environment.DefaultCatalog], Is.EqualTo("MyCatalog"));
 			Assert.That(cfg.Properties[Environment.DefaultSchema], Is.EqualTo("MySche"));
 			Assert.That(cfg.Properties[Environment.Dialect], Is.EqualTo(typeof(MsSql2000Dialect).AssemblyQualifiedName));
@@ -124,5 +126,26 @@ namespace NHibernate.Test.CfgTest.Loquacious
 
 			Assert.That(cfg.Properties[Environment.ConnectionStringName], Is.EqualTo("MyName"));
 		}
+
+		[Test]
+		public void NH2890Loquacious()
+		{
+			var cfg = new Configuration();
+			cfg.Configure(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestEnbeddedConfig.cfg.xml"))
+				.SetDefaultAssembly("NHibernate.DomainModel")
+				.SetDefaultNamespace("NHibernate.DomainModel")
+				.SessionFactory()
+				.ParsingLinqThrough<NHibernate.Test.CfgTest.ConfigurationFixture.SampleQueryProvider>();
+
+			using (var sessionFactory = cfg.BuildSessionFactory())
+			{
+				using (var session = sessionFactory.OpenSession())
+				{
+					var query = session.Query<NHibernate.DomainModel.A>();
+					Assert.IsInstanceOf(typeof(NHibernate.Test.CfgTest.ConfigurationFixture.SampleQueryProvider), query.Provider);
+				}
+			}
+		}
+
 	}
 }

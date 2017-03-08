@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using Iesi.Collections.Generic;
 using NHibernate.Engine;
 using NHibernate.Engine.Query.Sql;
 using NHibernate.Param;
@@ -15,7 +14,7 @@ namespace NHibernate.Loader.Custom.Sql
 		private static readonly IInternalLogger log = LoggerProvider.LoggerFor(typeof (SQLCustomQuery));
 
 		private readonly List<IReturn> customQueryReturns;
-		private readonly ISet<string> querySpaces = new HashedSet<string>();
+		private readonly ISet<string> querySpaces = new HashSet<string>();
 		private readonly SqlString sql;
 		private readonly List<IParameterSpecification> parametersSpecifications;
 
@@ -32,7 +31,7 @@ namespace NHibernate.Loader.Custom.Sql
 
 			if (additionalQuerySpaces != null)
 			{
-				this.querySpaces.AddAll(additionalQuerySpaces);
+				this.querySpaces.UnionWith(additionalQuerySpaces);
 			}
 		}
 

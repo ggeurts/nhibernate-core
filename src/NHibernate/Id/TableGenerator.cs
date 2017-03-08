@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Runtime.CompilerServices;
 
 using NHibernate.AdoNet.Util;
@@ -25,7 +26,7 @@ namespace NHibernate.Id
 	/// <c>System.Int32</c>
 	/// </p>
 	/// <p>
-	/// The hi value MUST be fetched in a seperate transaction to the <c>ISession</c>
+	/// The hi value MUST be fetched in a separate transaction to the <c>ISession</c>
 	/// transaction so the generator must be able to obtain a new connection and commit it.
 	/// Hence this implementation may not be used when the user is supplying connections.
 	/// </p>
@@ -178,10 +179,10 @@ namespace NHibernate.Id
 			// it at 0 would cause problems with an unsaved-value="0" which is what most people are 
 			// defaulting <id>'s with Int32 types at.
 			return new[]
-			       	{
-			       		"create table " + tableName + " ( " + columnName + " " + dialect.GetTypeName(columnSqlType) + " )",
-			       		"insert into " + tableName + " values ( 1 )"
-			       	};
+					{
+						"create table " + tableName + " ( " + columnName + " " + dialect.GetTypeName(columnSqlType) + " )",
+						"insert into " + tableName + " values ( 1 )"
+					};
 		}
 
 		/// <summary>
@@ -209,8 +210,8 @@ namespace NHibernate.Id
 
 		#endregion
 
-		public override object DoWorkInCurrentTransaction(ISessionImplementor session, IDbConnection conn,
-		                                                  IDbTransaction transaction)
+		public override object DoWorkInCurrentTransaction(ISessionImplementor session, DbConnection conn,
+														  DbTransaction transaction)
 		{
 			long result;
 			int rows;
@@ -220,8 +221,8 @@ namespace NHibernate.Id
 				//select + uspdate even for no transaction
 				//or read committed isolation level (needed for .net?)
 
-				IDbCommand qps = conn.CreateCommand();
-				IDataReader rs = null;
+				var qps = conn.CreateCommand();
+				DbDataReader rs = null;
 				qps.CommandText = query;
 				qps.CommandType = CommandType.Text;
 				qps.Transaction = transaction;
@@ -259,8 +260,7 @@ namespace NHibernate.Id
 					qps.Dispose();
 				}
 
-				IDbCommand ups = session.Factory.ConnectionProvider.Driver.GenerateCommand(CommandType.Text, updateSql,
-				                                                                           parameterTypes);
+				var ups = session.Factory.ConnectionProvider.Driver.GenerateCommand(CommandType.Text, updateSql, parameterTypes);
 				ups.Connection = conn;
 				ups.Transaction = transaction;
 

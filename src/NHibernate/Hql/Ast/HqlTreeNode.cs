@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NHibernate.Hql.Ast.ANTLR;
 using NHibernate.Hql.Ast.ANTLR.Tree;
+using NHibernate.Util;
 
 namespace NHibernate.Hql.Ast
 {
@@ -91,7 +92,7 @@ namespace NHibernate.Hql.Ast
 
 		internal void AddChild(HqlTreeNode child)
 		{
-			if ((child is HqlExpressionSubTreeHolder) || (child is HqlDistinctHolder))
+			if (child is HqlExpressionSubTreeHolder)
 			{
 				AddChildren(child.Children);
 			}
@@ -111,15 +112,45 @@ namespace NHibernate.Hql.Ast
 			return (HqlExpression)node;
 		}
 
+		[Obsolete]
 		public static HqlBooleanExpression AsBooleanExpression(this HqlTreeNode node)
 		{
-			if (node is HqlDot)
-			{
-				return new HqlBooleanDot(node.Factory, (HqlDot) node);
-			}
+			var hqlDot = node as HqlDot;
+			if (hqlDot != null)
+				return new HqlBooleanDot(hqlDot.Factory, hqlDot);
+			var hqlBooleanExpression = node as HqlBooleanExpression;
+			if (hqlBooleanExpression != null)
+				return hqlBooleanExpression;
 
 			// TODO - nice error handling if cast fails
-			return (HqlBooleanExpression)node;
+			throw new NotSupportedException();
+		}
+
+		public static HqlBooleanExpression ToBooleanExpression(this HqlTreeNode node)
+		{
+			var hqlDot = node as HqlDot;
+			if (hqlDot != null)
+				return new HqlBooleanDot(hqlDot.Factory, hqlDot);
+			var hqlBooleanExpression = node as HqlBooleanExpression;
+			if (hqlBooleanExpression != null)
+				return hqlBooleanExpression;
+
+			var builder = new HqlTreeBuilder();
+
+			return builder.Equality(node.AsExpression(), builder.True());
+		}
+
+		internal static HqlExpression ToArithmeticExpression(this HqlTreeNode node)
+		{
+			var hqlBooleanExpression = node as HqlBooleanExpression;
+			if (hqlBooleanExpression != null)
+			{
+				var builder = new HqlTreeBuilder();
+
+				return builder.Case(new[] {builder.When(hqlBooleanExpression, builder.True())}, builder.False());
+			}
+
+			return (HqlExpression) node;
 		}
 	}
 
@@ -180,10 +211,7 @@ namespace NHibernate.Hql.Ast
 		internal HqlIdent(IASTFactory factory, System.Type type)
 			: base(HqlSqlWalker.IDENT, "", factory)
 		{
-			if (IsNullableType(type))
-			{
-				type = ExtractUnderlyingTypeFromNullable(type);
-			}
+			type = type.UnwrapIfNullable();
 
 			switch (System.Type.GetTypeCode(type))
 			{
@@ -220,19 +248,13 @@ namespace NHibernate.Hql.Ast
 						SetText("guid");
 						break;
 					}
+					if (type == typeof(DateTimeOffset))
+					{
+						SetText("datetimeoffset");
+						break;
+					}
 					throw new NotSupportedException(string.Format("Don't currently support idents of type {0}", type.Name));
 			}
-		}
-
-		private static System.Type ExtractUnderlyingTypeFromNullable(System.Type type)
-		{
-			return type.GetGenericArguments()[0];
-		}
-
-		// TODO - code duplicated in LinqExtensionMethods
-		private static bool IsNullableType(System.Type type)
-		{
-			return (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>));
 		}
 	}
 
@@ -381,7 +403,7 @@ namespace NHibernate.Hql.Ast
 	public class HqlTake : HqlStatement
 	{
 		public HqlTake(IASTFactory factory, HqlExpression parameter)
-			: base(HqlSqlWalker.TAKE, "take", factory, parameter) {}
+			: base(HqlSqlWalker.TAKE, "take", factory, parameter) { }
 	}
 
 	public class HqlConstant : HqlExpression
@@ -826,6 +848,19 @@ namespace NHibernate.Hql.Ast
 			: base(HqlSqlWalker.LIKE, "like", factory, lhs, rhs)
 		{
 		}
+
+		public HqlLike(IASTFactory factory, HqlExpression lhs, HqlExpression rhs, HqlConstant escapeCharacter)
+		: base(HqlSqlWalker.LIKE, "like", factory, lhs, rhs, new HqlEscape(factory, escapeCharacter))
+		{
+	}
+	}
+
+	public class HqlEscape : HqlStatement
+	{
+		public HqlEscape(IASTFactory factory, HqlConstant escapeCharacter)
+			: base(HqlSqlWalker.ESCAPE, "escape", factory, escapeCharacter)
+		{
+		}
 	}
 
 	public class HqlConcat : HqlExpression
@@ -855,14 +890,6 @@ namespace NHibernate.Hql.Ast
 		{
 			AddChild(new HqlIdent(factory, methodName));
 			AddChild(new HqlExpressionList(factory, parameters));
-		}
-	}
-
-	[Obsolete("Use HqlExpressionSubTreeHolder instead")]
-	public class HqlDistinctHolder : HqlExpression
-	{
-		public HqlDistinctHolder(IASTFactory factory, HqlTreeNode[] children) : base(int.MinValue, "distinct holder", factory, children)
-		{
 		}
 	}
 

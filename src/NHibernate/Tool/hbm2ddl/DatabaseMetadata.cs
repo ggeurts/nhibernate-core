@@ -1,9 +1,7 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
-using Iesi.Collections.Generic;
 
 using NHibernate.Dialect.Schema;
 using NHibernate.Exceptions;
@@ -17,7 +15,7 @@ namespace NHibernate.Tool.hbm2ddl
 		private static readonly IInternalLogger log = LoggerProvider.LoggerFor(typeof (DatabaseMetadata));
 
 		private readonly IDictionary<string, ITableMetadata> tables = new Dictionary<string, ITableMetadata>();
-		private readonly ISet<string> sequences = new HashedSet<string>();
+		private readonly ISet<string> sequences = new HashSet<string>();
 		private readonly bool extras;
 		private readonly Dialect.Dialect dialect;
 		private readonly IDataBaseSchema meta;
@@ -111,10 +109,10 @@ namespace NHibernate.Tool.hbm2ddl
 				string sql = dialect.QuerySequencesString;
 				if (sql != null)
 				{
-					using (IDbCommand statement = connection.CreateCommand())
+					using (var statement = connection.CreateCommand())
 					{
 						statement.CommandText = sql;
-						using (IDataReader rs = statement.ExecuteReader())
+						using (var rs = statement.ExecuteReader())
 						{
 							while (rs.Read())
 								sequences.Add(((string) rs[0]).ToLower().Trim());

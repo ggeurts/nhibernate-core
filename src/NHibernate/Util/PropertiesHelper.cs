@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace NHibernate.Util
@@ -19,6 +18,14 @@ namespace NHibernate.Util
 		public static bool GetBoolean(string property, IDictionary<string, string> properties)
 		{
 			return GetBoolean(property, properties, false);
+		}
+
+		public static byte? GetByte(string property, IDictionary<string, string> properties, byte? defaultValue)
+		{
+			string toParse;
+			properties.TryGetValue(property, out toParse);
+			byte result;
+			return byte.TryParse(toParse, out result) ? result : defaultValue;
 		}
 
 		public static int GetInt32(string property, IDictionary<string, string> properties, int defaultValue)
@@ -66,23 +73,6 @@ namespace NHibernate.Util
 				}
 			}
 			return map;
-		}
-
-		public static string[] ToStringArray(string property, string delim, IDictionary properties)
-		{
-			return ToStringArray((string) properties[property], delim);
-		}
-
-		public static string[] ToStringArray(string propValue, string delim)
-		{
-			if (propValue != null)
-			{
-				return StringHelper.Split(delim, propValue);
-			}
-			else
-			{
-				return new string[0];
-			}
 		}
 	}
 }

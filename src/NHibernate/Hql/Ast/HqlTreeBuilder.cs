@@ -356,6 +356,11 @@ namespace NHibernate.Hql.Ast
 			return new HqlLike(_factory, lhs, rhs);
 		}
 
+		public HqlLike Like(HqlExpression lhs, HqlExpression rhs, HqlConstant escapeCharacter)
+		{
+			return new HqlLike(_factory, lhs, rhs, escapeCharacter);
+		}
+
 		public HqlConcat Concat(params HqlExpression[] args)
 		{
 			return new HqlConcat(_factory, args);
@@ -374,11 +379,6 @@ namespace NHibernate.Hql.Ast
 		public HqlBooleanMethodCall BooleanMethodCall(string methodName, IEnumerable<HqlExpression> parameters)
 		{
 			return new HqlBooleanMethodCall(_factory, methodName, parameters);
-		}
-
-		public HqlDistinctHolder DistinctHolder(params HqlTreeNode[] children)
-		{
-			return new HqlDistinctHolder(_factory, children);
 		}
 
 		public HqlExpressionSubTreeHolder ExpressionSubTreeHolder(params HqlTreeNode[] children)

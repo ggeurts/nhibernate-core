@@ -1,5 +1,6 @@
 using System;
 using System.Data;
+using System.Data.Common;
 using System.Runtime.Serialization;
 using System.Security;
 using System.Security.Permissions;
@@ -28,7 +29,7 @@ namespace NHibernate.AdoNet
 		}
 
 		[NonSerialized]
-		private IDbConnection connection;
+		private DbConnection connection;
 		// Whether we own the connection, i.e. connect and disconnect automatically.
 		private bool ownConnection;
 
@@ -49,7 +50,7 @@ namespace NHibernate.AdoNet
 
 		public ConnectionManager(
 			ISessionImplementor session,
-			IDbConnection suppliedConnection,
+			DbConnection suppliedConnection,
 			ConnectionReleaseMode connectionReleaseMode,
 			IInterceptor interceptor)
 		{
@@ -69,7 +70,7 @@ namespace NHibernate.AdoNet
 			{
 				if (transaction != null && transaction.IsActive)
 					return true;
-				return session.Factory.TransactionFactory.IsInDistributedActiveTransaction(session);
+				return Factory.TransactionFactory.IsInDistributedActiveTransaction(session);
 			}
 		}
 
@@ -88,7 +89,7 @@ namespace NHibernate.AdoNet
 			ownConnection = true;
 		}
 
-		public void Reconnect(IDbConnection suppliedConnection)
+		public void Reconnect(DbConnection suppliedConnection)
 		{
 			if (IsConnected)
 			{
@@ -100,7 +101,7 @@ namespace NHibernate.AdoNet
 			ownConnection = false;
 		}
 
-		public IDbConnection Close()
+		public DbConnection Close()
 		{
 			if (batcher != null)
 			{
@@ -126,14 +127,14 @@ namespace NHibernate.AdoNet
 			}
 		}
 
-		private IDbConnection DisconnectSuppliedConnection()
+		private DbConnection DisconnectSuppliedConnection()
 		{
 			if (connection == null)
 			{
 				throw new HibernateException("Session already disconnected");
 			}
 
-			IDbConnection c = connection;
+			var c = connection;
 			connection = null;
 			return c;
 		}
@@ -154,50 +155,39 @@ namespace NHibernate.AdoNet
 			CloseConnection();
 		}
 
-		public IDbConnection Disconnect() {
-            if (IsInActiveTransaction)
-                throw  new InvalidOperationException("Disconnect cannot be called while a transaction is in progress.");
-			try
+		public DbConnection Disconnect()
+		{
+			if (IsInActiveTransaction)
+				throw new InvalidOperationException("Disconnect cannot be called while a transaction is in progress.");
+
+			if (!ownConnection)
 			{
-				if (!ownConnection)
-				{
-					return DisconnectSuppliedConnection();
-				}
-				else
-				{
-					DisconnectOwnConnection();
-					ownConnection = false;
-					return null;
-				}
+				return DisconnectSuppliedConnection();
 			}
-			finally
+			else
 			{
-				// Ensure that AfterTransactionCompletion gets called since
-				// it takes care of the locks and cache.
-				if (!IsInActiveTransaction)
-				{
-					// We don't know the state of the transaction
-					session.AfterTransactionCompletion(false, null);
-				}
+				DisconnectOwnConnection();
+				ownConnection = false;
+				return null;
 			}
 		}
 
 		private void CloseConnection()
 		{
-			session.Factory.ConnectionProvider.CloseConnection(connection);
+			Factory.ConnectionProvider.CloseConnection(connection);
 			connection = null;
 		}
 
-		public IDbConnection GetConnection()
+		public DbConnection GetConnection()
 		{
 			if (connection == null)
 			{
 				if (ownConnection)
 				{
-					connection = session.Factory.ConnectionProvider.GetConnection();
-					if (session.Factory.Statistics.IsStatisticsEnabled)
+					connection = Factory.ConnectionProvider.GetConnection();
+					if (Factory.Statistics.IsStatisticsEnabled)
 					{
-						session.Factory.StatisticsImplementor.Connect();
+						Factory.StatisticsImplementor.Connect();
 					}
 				}
 				else if (session.IsOpen)
@@ -293,11 +283,7 @@ namespace NHibernate.AdoNet
 			interceptor = (IInterceptor)info.GetValue("interceptor", typeof(IInterceptor));
 		}
 
-		[SecurityPermission(SecurityAction.LinkDemand,
-			Flags = SecurityPermissionFlag.SerializationFormatter)]
-#if NET_4_0
 		[SecurityCritical]
-#endif
 		public void GetObjectData(SerializationInfo info, StreamingContext context)
 		{
 			info.AddValue("ownConnection", ownConnection);
@@ -312,7 +298,7 @@ namespace NHibernate.AdoNet
 
 		void IDeserializationCallback.OnDeserialization(object sender)
 		{
-			batcher = session.Factory.Settings.BatcherFactory.CreateBatcher(this, interceptor);
+			batcher = Factory.Settings.BatcherFactory.CreateBatcher(this, interceptor);
 		}
 
 		#endregion
@@ -335,7 +321,7 @@ namespace NHibernate.AdoNet
 			{
 				if (transaction == null)
 				{
-					transaction = session.Factory.TransactionFactory.CreateTransaction(session);
+					transaction = Factory.TransactionFactory.CreateTransaction(session);
 				}
 				return transaction;
 			}
@@ -344,7 +330,6 @@ namespace NHibernate.AdoNet
 		public void AfterNonTransactionalQuery(bool success)
 		{
 			log.Debug("after autocommit");
-			session.AfterTransactionCompletion(success, null);
 		}
 
 		private bool IsAfterTransactionRelease
@@ -419,7 +404,7 @@ namespace NHibernate.AdoNet
 			}
 		}
 
-		public IDbCommand CreateCommand()
+		public DbCommand CreateCommand()
 		{
 			var result = GetConnection().CreateCommand();
 			Transaction.Enlist(result);

@@ -1,7 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Data;
+using System.Data.Common;
+using NHibernate.Collection.Generic;
 using NHibernate.Engine;
 using NHibernate.Impl;
 using NHibernate.Loader;
@@ -409,7 +410,7 @@ namespace NHibernate.Collection
 		}
 
 		/// <summary>
-		/// Called just before reading any rows from the <see cref="IDataReader" />
+		/// Called just before reading any rows from the <see cref="DbDataReader" />
 		/// </summary>
 		public virtual void BeginRead()
 		{
@@ -418,7 +419,7 @@ namespace NHibernate.Collection
 		}
 
 		/// <summary>
-		/// Called after reading all rows from the <see cref="IDataReader" />
+		/// Called after reading all rows from the <see cref="DbDataReader" />
 		/// </summary>
 		/// <remarks>
 		/// This should be overridden by sub collections that use temporary collections
@@ -482,7 +483,7 @@ namespace NHibernate.Collection
 		{
 			var ownerEntityName = role == null ? "Unavailable" : StringHelper.Qualifier(role);
 			throw new LazyInitializationException(ownerEntityName, key, "failed to lazily initialize a collection"
-			                                      + (role == null ? "" : " of role: " + role) + ", " + message);
+												  + (role == null ? "" : " of role: " + role) + ", " + message);
 		}
 
 		/// <summary>
@@ -540,7 +541,7 @@ namespace NHibernate.Collection
 		public virtual bool SetCurrentSession(ISessionImplementor session)
 		{
 			if (session == this.session // NH: added to fix NH-704
-			    && session.PersistenceContext.ContainsCollection(this))
+				&& session.PersistenceContext.ContainsCollection(this))
 			{
 				return false;
 			}
@@ -556,7 +557,7 @@ namespace NHibernate.Collection
 					else
 					{
 						throw new HibernateException("Illegal attempt to associate a collection with two open sessions: "
-						                             + MessageHelper.InfoString(ce.LoadedPersister, ce.LoadedKey, session.Factory));
+													 + MessageHelper.CollectionInfoString(ce.LoadedPersister, this, ce.LoadedKey, session));
 					}
 				}
 				else
@@ -574,7 +575,7 @@ namespace NHibernate.Collection
 		/// <param name="persister">The <see cref="ICollectionPersister"/> for this Collection.</param>
 		/// <returns>
 		/// <see langword="false" /> by default since most collections can determine which rows need to be
-		/// individually updated/inserted/deleted.  Currently only <see cref="PersistentBag"/>'s for <c>many-to-many</c>
+		/// individually updated/inserted/deleted.  Currently only <see cref="PersistentGenericBag{T}"/>'s for <c>many-to-many</c>
 		/// need to be recreated.
 		/// </returns>
 		public virtual bool NeedsRecreate(ICollectionPersister persister)
@@ -584,7 +585,7 @@ namespace NHibernate.Collection
 
 		/// <summary>
 		/// To be called internally by the session, forcing
-		/// immediate initalization.
+		/// immediate initialization.
 		/// </summary>
 		/// <remarks>
 		/// This method is similar to <see cref="Initialize" />, except that different exceptions are thrown.
@@ -690,8 +691,7 @@ namespace NHibernate.Collection
 		/// belong to the collection, and a collection of instances
 		/// that currently belong, return a collection of orphans
 		/// </summary>
-		protected virtual ICollection GetOrphans(ICollection oldElements, ICollection currentElements, string entityName,
-		                                        ISessionImplementor session)
+		protected virtual ICollection GetOrphans(ICollection oldElements, ICollection currentElements, string entityName, ISessionImplementor session)
 		{
 			// short-circuit(s)
 			if (currentElements.Count == 0)
@@ -821,15 +821,15 @@ namespace NHibernate.Collection
 		public abstract bool NeedsUpdating(object entry, int i, IType elemType);
 
 		/// <summary>
-		/// Reads the row from the <see cref="IDataReader"/>.
+		/// Reads the row from the <see cref="DbDataReader"/>.
 		/// </summary>
-		/// <param name="reader">The IDataReader that contains the value of the Identifier</param>
+		/// <param name="reader">The DbDataReader that contains the value of the Identifier</param>
 		/// <param name="role">The persister for this Collection.</param>
 		/// <param name="descriptor">The descriptor providing result set column names</param>
 		/// <param name="owner">The owner of this Collection.</param>
 		/// <returns>The object that was contained in the row.</returns>
-		public abstract object ReadFrom(IDataReader reader, ICollectionPersister role, ICollectionAliases descriptor,
-		                                object owner);
+		public abstract object ReadFrom(DbDataReader reader, ICollectionPersister role, ICollectionAliases descriptor,
+										object owner);
 
 		public abstract object GetSnapshotElement(object entry, int i);
 
@@ -852,7 +852,7 @@ namespace NHibernate.Collection
 		/// allowing appropriate initializations to occur.
 		/// </summary>
 		/// <param name="persister">The underlying collection persister. </param>
-		/// <param name="anticipatedSize">The anticipated size of the collection after initilization is complete. </param>
+		/// <param name="anticipatedSize">The anticipated size of the collection after initialization is complete. </param>
 		public abstract void BeforeInitialize(ICollectionPersister persister, int anticipatedSize);
 
 		#region - Hibernate Collection Proxy Classes

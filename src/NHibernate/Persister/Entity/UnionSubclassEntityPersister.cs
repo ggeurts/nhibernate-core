@@ -186,7 +186,7 @@ namespace NHibernate.Persister.Entity
 			get { return discriminatorValue; }
 		}
 
-		public string[] SubclassClosure
+		public override string[] SubclassClosure
 		{
 			get { return subclassClosure; }
 		}
@@ -230,7 +230,7 @@ namespace NHibernate.Persister.Entity
 			get { return constraintOrderedTableNames; }
 		}
 
-		public override string[][] ContraintOrderedTableKeyColumnClosure
+		public override string[][] ConstraintOrderedTableKeyColumnClosure
 		{
 			get { return constraintOrderedKeyColumnNames; }
 		}
@@ -332,7 +332,7 @@ namespace NHibernate.Persister.Entity
 							var sqlType = col.GetSqlTypeCode(mapping);
 							buf.Append(dialect.GetSelectClauseNullString(sqlType)).Append(" as ");
 						}
-						buf.Append(col.Name);
+						buf.Append(col.GetQuotedName(dialect));
 						buf.Append(StringHelper.CommaSpace);
 					}
 					buf.Append(clazz.SubclassId).Append(" as clazz_");

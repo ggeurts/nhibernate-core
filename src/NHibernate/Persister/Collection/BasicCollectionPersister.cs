@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Data;
 using System.Data.Common;
 using NHibernate.AdoNet;
 using NHibernate.Cache;
@@ -162,7 +161,7 @@ namespace NHibernate.Persister.Collection
 
 			try
 			{
-				IDbCommand st = null;
+				DbCommand st = null;
 				IExpectation expectation = Expectations.AppropriateExpectation(UpdateCheckStyle);
 				//bool callable = UpdateCallable;
 				bool useBatch = expectation.CanBeBatched;
@@ -180,14 +179,14 @@ namespace NHibernate.Persister.Collection
 							{
 								st =
 									session.Batcher.PrepareBatchCommand(SqlUpdateRowString.CommandType, SqlUpdateRowString.Text,
-									                                    SqlUpdateRowString.ParameterTypes);
+																		SqlUpdateRowString.ParameterTypes);
 							}
 						}
 						else
 						{
 							st =
 								session.Batcher.PrepareCommand(SqlUpdateRowString.CommandType, SqlUpdateRowString.Text,
-								                               SqlUpdateRowString.ParameterTypes);
+															   SqlUpdateRowString.ParameterTypes);
 						}
 
 						try
@@ -245,8 +244,8 @@ namespace NHibernate.Persister.Collection
 			catch (DbException sqle)
 			{
 				throw ADOExceptionHelper.Convert(SQLExceptionConverter, sqle,
-				                                 "could not update collection rows: " + MessageHelper.InfoString(this, id),
-				                                 SqlUpdateRowString.Text);
+												 "could not update collection rows: " + MessageHelper.CollectionInfoString(this, collection, id, session),
+												 SqlUpdateRowString.Text);
 			}
 		}
 
@@ -300,8 +299,8 @@ namespace NHibernate.Persister.Collection
 		{
 			return
 				new SubselectCollectionLoader(this, subselect.ToSubselectString(CollectionType.LHSPropertyName), subselect.Result,
-				                              subselect.QueryParameters, session.Factory,
-				                              session.EnabledFilters);
+											  subselect.QueryParameters, session.Factory,
+											  session.EnabledFilters);
 		}
 
 		#region NH Specific

@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Data.Common;
-
 using NHibernate.Cfg;
 using NHibernate.Util;
 using Environment=NHibernate.Cfg.Environment;
@@ -45,7 +43,7 @@ namespace NHibernate.Tool.hbm2ddl
 		}
 
 		/// <summary>
-		///  Returns a List of all Exceptions which occured during the export.
+		///  Returns a List of all Exceptions which occurred during the export.
 		/// </summary>
 		/// <returns></returns>
 		public IList<Exception> Exceptions
@@ -118,9 +116,9 @@ namespace NHibernate.Tool.hbm2ddl
 		/// <summary>
 		/// Execute the schema updates
 		/// </summary>
-		public void Execute(bool script, bool doUpdate)
+		public void Execute(bool useStdOut, bool doUpdate)
 		{
-			if (script)
+			if (useStdOut)
 			{
 				Execute(Console.WriteLine, doUpdate);
 			}
@@ -147,7 +145,7 @@ namespace NHibernate.Tool.hbm2ddl
 			}
 
 			DbConnection connection;
-			IDbCommand stmt = null;
+			DbCommand stmt = null;
 
 			exceptions.Clear();
 

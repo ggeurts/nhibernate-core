@@ -1,7 +1,7 @@
 /**
  * SQL Generator Tree Parser, providing SQL rendering of SQL ASTs produced by the previous phase, HqlSqlWalker.  All
  * syntax decoration such as extra spaces, lack of spaces, extra parens, etc. should be added by this class.
- * <br>
+ * <br/>
  * This grammar processes the HQL/SQL AST and produces an SQL string.  The intent is to move dialect-specific
  * code into a sub-class that will override some of the methods, just like the other two grammars in this system.
  * @author Joshua Davis (joshua@hibernate.org)
@@ -11,7 +11,7 @@ tree grammar SqlGenerator;
 
 options 
 {
-	language=CSharp2;
+	language=CSharp3;
 	tokenVocab=HqlSqlWalker;
 	ASTLabelType=IASTNode;
 	output=None;
@@ -24,7 +24,7 @@ options
 using NHibernate.Hql.Ast.ANTLR.Tree;
 }
 
-statement
+public statement
 	: selectStatement
 	| updateStatement
 	| deleteStatement
@@ -77,7 +77,7 @@ setClause
 	: ^( SET { Out(" set "); } comparisonExpr[false] ( { Out(", "); } comparisonExpr[false] )* )
 	;
 
-whereClause
+public whereClause
 	: ^(WHERE { Out(" where "); } whereClauseExpr )
 	;
 
@@ -101,7 +101,7 @@ orderDirection
 	| DESCENDING
 	;
 
-whereExpr
+public whereExpr
 	// Expect the filter subtree, followed by the theta join subtree, followed by the HQL condition subtree.
 	// Might need parens around the HQL condition if there is more than one subtree.
 	// Put 'and' between each subtree.
@@ -206,7 +206,7 @@ booleanExpr[ bool parens ]
 	| st=SQL_TOKEN { Out(st); } // solely for the purpose of mapping-defined where-fragments
 	;
 	
-comparisonExpr[ bool parens ]
+public comparisonExpr[ bool parens ]
 	: binaryComparisonExpression
 	| { if (parens) Out("("); } exoticComparisonExpression { if (parens) Out(")"); }
 	;
@@ -264,7 +264,7 @@ parenSelect
 	;
 
 	
-simpleExpr
+public simpleExpr
 	: c=constant { Out($c.start); }
 	| NULL { Out("null"); }
 	| addrExpr
@@ -295,7 +295,7 @@ arithmeticExpr
 	| bitwiseExpr
 	| multiplicativeExpr
 //	| ^(CONCAT { Out("("); } expr ( { Out("||"); } expr )+ { Out(")"); } )
-	| ^(UNARY_MINUS { Out("-"); } expr)
+	| ^(UNARY_MINUS { Out("-"); } nestedExprAfterMinusDiv)
 	| caseExpr
 	;
 
@@ -305,10 +305,10 @@ additiveExpr
 	;
 
 bitwiseExpr
-	: ^(BAND expr { Out("&"); } nestedExpr)
-	| ^(BOR expr { Out("|"); } nestedExpr)
-	| ^(BXOR expr { Out("^"); } nestedExpr)
-	| ^(BNOT { Out("~"); } nestedExpr)	
+	: ^(BAND { BeginBitwiseOp("band"); } expr nestedExpr { EndBitwiseOp("band"); })
+	| ^(BOR { BeginBitwiseOp("bor"); } expr nestedExpr { EndBitwiseOp("bor"); })
+	| ^(BXOR { BeginBitwiseOp("bxor"); } expr nestedExpr { EndBitwiseOp("bxor"); })
+	| ^(BNOT { BeginBitwiseOp("bnot"); } nestedExpr { EndBitwiseOp("bnot"); })
 	;
 
 multiplicativeExpr
@@ -370,6 +370,7 @@ addrExpr
 	: ^(r=DOT . .) { Out(r); }
 	| i=ALIAS_REF { Out(i); }
 	| ^(j=INDEX_OP .*) { Out(j); }
+	| v=RESULT_VARIABLE_REF { Out(v); }
 	;
 
 sqlToken

@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Data;
+using System.Data.Common;
 using System.Reflection;
 using System.Xml;
 using NHibernate.Engine;
@@ -23,9 +23,9 @@ namespace NHibernate.Type
 		private readonly FetchMode?[] joinedFetch;
 		private readonly bool isKey;
 		protected internal EntityModeToTuplizerMapping tuplizerMapping;
-	    private bool overridesGetHashCode;
+		private bool overridesGetHashCode;
 
-	    public override SqlType[] SqlTypes(IMapping mapping)
+		public override SqlType[] SqlTypes(IMapping mapping)
 		{
 			//Not called at runtime so doesn't matter if its slow :)
 			SqlType[] sqlTypes = new SqlType[GetColumnSpan(mapping)];
@@ -73,11 +73,11 @@ namespace NHibernate.Type
 			}
 
 			tuplizerMapping = metamodel.TuplizerMapping;
-		    var tuplizer = tuplizerMapping.GetTuplizerOrNull(EntityMode.Poco);
-            if(tuplizer !=null)
-            {
-                overridesGetHashCode = ReflectHelper.OverridesGetHashCode(tuplizer.MappedClass);
-            }
+			var tuplizer = tuplizerMapping.GetTuplizerOrNull(EntityMode.Poco);
+			if(tuplizer !=null)
+			{
+				overridesGetHashCode = ReflectHelper.OverridesGetHashCode(tuplizer.MappedClass);
+			}
 		}
 
 		/// <summary></summary>
@@ -106,8 +106,8 @@ namespace NHibernate.Type
 
 		public override int GetHashCode(object x, EntityMode entityMode, ISessionFactoryImplementor factory)
 		{
-            if (overridesGetHashCode)
-                return x.GetHashCode();
+			if (overridesGetHashCode)
+				return x.GetHashCode();
 			return GetHashCode(x, entityMode);
 		}
 
@@ -179,7 +179,7 @@ namespace NHibernate.Type
 				if (len <= 1)
 				{
 					bool dirty = (len == 0 || checkable[loc]) &&
-					             propertyTypes[i].IsDirty(xvalues[i], yvalues[i], session);
+								 propertyTypes[i].IsDirty(xvalues[i], yvalues[i], session);
 					if (dirty)
 					{
 						return true;
@@ -200,7 +200,7 @@ namespace NHibernate.Type
 			return false;
 		}
 
-		public override object NullSafeGet(IDataReader rs, string[] names, ISessionImplementor session, object owner)
+		public override object NullSafeGet(DbDataReader rs, string[] names, ISessionImplementor session, object owner)
 		{
 			return ResolveIdentifier(Hydrate(rs, names, session, owner), session, owner);
 		}
@@ -212,7 +212,7 @@ namespace NHibernate.Type
 		/// <param name="value"></param>
 		/// <param name="begin"></param>
 		/// <param name="session"></param>
-		public override void NullSafeSet(IDbCommand st, object value, int begin, ISessionImplementor session)
+		public override void NullSafeSet(DbCommand st, object value, int begin, ISessionImplementor session)
 		{
 			object[] subvalues = NullSafeGetValues(value, session.EntityMode);
 
@@ -223,7 +223,7 @@ namespace NHibernate.Type
 			}
 		}
 
-		public override void NullSafeSet(IDbCommand st, object value, int begin, bool[] settable, ISessionImplementor session)
+		public override void NullSafeSet(DbCommand st, object value, int begin, bool[] settable, ISessionImplementor session)
 		{
 			object[] subvalues = NullSafeGetValues(value, session.EntityMode);
 
@@ -266,7 +266,7 @@ namespace NHibernate.Type
 			}
 		}
 
-		public override object NullSafeGet(IDataReader rs, string name, ISessionImplementor session, object owner)
+		public override object NullSafeGet(DbDataReader rs, string name, ISessionImplementor session, object owner)
 		{
 			return NullSafeGet(rs, new string[] {name}, session, owner);
 		}
@@ -368,7 +368,7 @@ namespace NHibernate.Type
 		}
 
 		public override object Replace(object original, object target, ISessionImplementor session, object owner,
-		                               IDictionary copiedAlready)
+									   IDictionary copiedAlready)
 		{
 			if (original == null)
 				return null;
@@ -478,7 +478,7 @@ namespace NHibernate.Type
 			get { return false; }
 		}
 
-		public override object Hydrate(IDataReader rs, string[] names, ISessionImplementor session, object owner)
+		public override object Hydrate(DbDataReader rs, string[] names, ISessionImplementor session, object owner)
 		{
 			int begin = 0;
 			bool notNull = false;

@@ -13,7 +13,7 @@ namespace NHibernate.Mapping.ByCode.Impl.CustomizersImpl
 			{
 				throw new ArgumentNullException("explicitDeclarationsHolder");
 			}
-			explicitDeclarationsHolder.AddAsManyToManyRelation(propertyPath.LocalMember);
+			explicitDeclarationsHolder.AddAsManyToManyItemRelation(propertyPath.LocalMember);
 			this.propertyPath = propertyPath;
 			this.customizersHolder = customizersHolder;
 		}
@@ -63,6 +63,11 @@ namespace NHibernate.Mapping.ByCode.Impl.CustomizersImpl
 		public void ForeignKey(string foreignKeyName)
 		{
 			customizersHolder.AddCustomizer(propertyPath, (IManyToManyMapper x) => x.ForeignKey(foreignKeyName));
+		}
+
+		public void Where(string sqlWhereClause)
+		{
+			customizersHolder.AddCustomizer(propertyPath, (IManyToManyMapper x) => x.Where(sqlWhereClause));
 		}
 
 		#endregion

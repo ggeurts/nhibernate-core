@@ -25,11 +25,7 @@ namespace NHibernate.AdoNet
 			this.actualRowCount = info.GetInt32("actualRowCount");
 		}
 
-		[SecurityPermission(SecurityAction.LinkDemand,
-			Flags=SecurityPermissionFlag.SerializationFormatter)]
-#if NET_4_0
 		[SecurityCritical]
-#endif
 		public override void GetObjectData(SerializationInfo info, StreamingContext context)
 		{
 			base.GetObjectData(info, context);

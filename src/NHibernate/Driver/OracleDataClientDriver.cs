@@ -1,4 +1,6 @@
+using System;
 using System.Data;
+using System.Data.Common;
 using System.Reflection;
 using NHibernate.AdoNet;
 using NHibernate.Engine.Query;
@@ -24,6 +26,7 @@ namespace NHibernate.Driver
 		private readonly PropertyInfo oracleCommandBindByName;
 		private readonly PropertyInfo oracleDbType;
 		private readonly object oracleDbTypeRefCursor;
+		private readonly object oracleDbTypeXmlType;
 
 		/// <summary>
 		/// Initializes a new instance of <see cref="OracleDataClientDriver"/>.
@@ -45,7 +48,8 @@ namespace NHibernate.Driver
 			oracleDbType = parameterType.GetProperty("OracleDbType");
 
 			System.Type oracleDbTypeEnum = ReflectHelper.TypeFromAssembly("Oracle.DataAccess.Client.OracleDbType", driverAssemblyName, false);
-			oracleDbTypeRefCursor = System.Enum.Parse(oracleDbTypeEnum, "RefCursor");
+			oracleDbTypeRefCursor = Enum.Parse(oracleDbTypeEnum, "RefCursor");
+			oracleDbTypeXmlType = Enum.Parse(oracleDbTypeEnum, "XmlType");
 		}
 
 		/// <summary></summary>
@@ -70,7 +74,7 @@ namespace NHibernate.Driver
 		/// This adds logic to ensure that a DbType.Boolean parameter is not created since
 		/// ODP.NET doesn't support it.
 		/// </remarks>
-		protected override void InitializeParameter(IDbDataParameter dbParam, string name, SqlType sqlType)
+		protected override void InitializeParameter(DbParameter dbParam, string name, SqlType sqlType)
 		{
 			// if the parameter coming in contains a boolean then we need to convert it 
 			// to another type since ODP.NET doesn't support DbType.Boolean
@@ -82,13 +86,22 @@ namespace NHibernate.Driver
 				case DbType.Guid:
 					base.InitializeParameter(dbParam, name, GuidSqlType);
 					break;
+				case DbType.Xml:
+					this.InitializeParameter(dbParam, name, oracleDbTypeXmlType);
+					break;
 				default:
 					base.InitializeParameter(dbParam, name, sqlType);
 					break;
 			}
 		}
 
-		protected override void OnBeforePrepare(IDbCommand command)
+		private void InitializeParameter(DbParameter dbParam, string name, object sqlType)
+		{
+			dbParam.ParameterName = FormatNameForParameter(name);
+			oracleDbType.SetValue(dbParam, sqlType, null);
+		}
+
+		protected override void OnBeforePrepare(DbCommand command)
 		{
 			base.OnBeforePrepare(command);
 
@@ -105,7 +118,7 @@ namespace NHibernate.Driver
 			command.CommandText = detail.FunctionName;
 			oracleCommandBindByName.SetValue(command, false, null);
 
-			IDbDataParameter outCursor = command.CreateParameter();
+			var outCursor = command.CreateParameter();
 			oracleDbType.SetValue(outCursor, oracleDbTypeRefCursor, null);
 
 			outCursor.Direction = detail.HasReturn ? ParameterDirection.ReturnValue : ParameterDirection.Output;
@@ -113,13 +126,9 @@ namespace NHibernate.Driver
 			command.Parameters.Insert(0, outCursor);
 		}
 
-		#region IEmbeddedBatcherFactoryProvider Members
-
 		System.Type IEmbeddedBatcherFactoryProvider.BatcherFactoryClass
 		{
 			get { return typeof (OracleDataClientBatchingBatcherFactory); }
 		}
-
-		#endregion
 	}
 }

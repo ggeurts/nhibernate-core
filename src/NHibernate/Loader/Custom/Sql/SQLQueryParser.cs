@@ -41,7 +41,7 @@ namespace NHibernate.Loader.Custom.Sql
 			get { return parametersSpecifications; }
 		}
 
-		// TODO: should "record" how many properties we have refered to - and if we 
+		// TODO: should "record" how many properties we have referred to - and if we 
 		//       don't get'em'all we throw an exception! Way better than trial and error ;)
 		private string SubstituteBrackets()
 		{
@@ -221,7 +221,7 @@ namespace NHibernate.Loader.Custom.Sql
 		}
 
 		/// <summary> 
-		/// Substitues ADO parameter placeholders (?) for all encountered
+		/// Substitutes ADO parameter placeholders (?) for all encountered
 		/// parameter specifications.  It also tracks the positions of these
 		/// parameter specifications within the query string.  This accounts for
 		/// ordinal-params, named-params, and ejb3-positional-params.

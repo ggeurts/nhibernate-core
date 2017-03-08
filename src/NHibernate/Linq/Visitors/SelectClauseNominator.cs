@@ -1,16 +1,34 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using NHibernate.Linq.Functions;
 using NHibernate.Linq.Expressions;
+using NHibernate.Util;
 using Remotion.Linq.Parsing;
 
 namespace NHibernate.Linq.Visitors
 {
+	/// <summary>
+	/// Analyze the select clause to determine what parts can be translated
+	/// fully to HQL, and some other properties of the clause.
+	/// </summary>
 	class SelectClauseHqlNominator : ExpressionTreeVisitor
 	{
 		private readonly ILinqToHqlGeneratorsRegistry _functionRegistry;
 
-		private HashSet<Expression> _candidates;
+		/// <summary>
+		/// The expression parts that can be converted to pure HQL.
+		/// </summary>
+		public HashSet<Expression> HqlCandidates { get; private set; }
+
+		/// <summary>
+		/// If true after an expression have been analyzed, the
+		/// expression as a whole contain at least one method call which
+		/// cannot be converted to a registered function, i.e. it must
+		/// be executed client side.
+		/// </summary>
+		public bool ContainsUntranslatedMethodCalls { get; private set; }
+
 		private bool _canBeCandidate;
 		Stack<bool> _stateStack;
 
@@ -19,59 +37,73 @@ namespace NHibernate.Linq.Visitors
 			_functionRegistry = parameters.SessionFactory.Settings.LinqToHqlGeneratorsRegistry;
 		}
 
-		internal HashSet<Expression> Nominate(Expression expression)
+		internal Expression Visit(Expression expression)
 		{
-			_candidates = new HashSet<Expression>();
+			HqlCandidates = new HashSet<Expression>();
+			ContainsUntranslatedMethodCalls = false;
 			_canBeCandidate = true;
 			_stateStack = new Stack<bool>();
 			_stateStack.Push(false);
 
-			VisitExpression(expression);
-
-			return _candidates;
+			return VisitExpression(expression);
 		}
 
 		public override Expression VisitExpression(Expression expression)
 		{
+			if (expression == null)
+				return null;
+
+			if (expression.NodeType == (ExpressionType)NhExpressionType.Nominator)
+			{
+				// Add the nominated clause and strip the nominator wrapper from the select expression
+				var innerExpression = ((NhNominatedExpression)expression).Expression;
+				HqlCandidates.Add(innerExpression);
+				return innerExpression;
+			}
+
+			var projectConstantsInHql = _stateStack.Peek() || expression.NodeType == ExpressionType.Equal || IsRegisteredFunction(expression);
+
+			// Set some flags, unless we already have proper values for them:
+			//    projectConstantsInHql if they are inside a method call executed server side.
+			//    ContainsUntranslatedMethodCalls if a method call must be executed locally.
+			var isMethodCall = expression.NodeType == ExpressionType.Call;
+			if (isMethodCall && (!projectConstantsInHql || !ContainsUntranslatedMethodCalls))
+			{
+				var isRegisteredFunction = IsRegisteredFunction(expression);
+				projectConstantsInHql = projectConstantsInHql || isRegisteredFunction;
+				ContainsUntranslatedMethodCalls = ContainsUntranslatedMethodCalls || !isRegisteredFunction;
+			}
+
+			_stateStack.Push(projectConstantsInHql);
+			bool saveCanBeCandidate = _canBeCandidate;
+			_canBeCandidate = true;
+
 			try
 			{
-				var projectConstantsInHql = _stateStack.Peek() ||
-											expression != null && IsRegisteredFunction(expression);
-
-				_stateStack.Push(projectConstantsInHql);
-
-				if (expression == null)
-					return null;
-
-				bool saveCanBeCandidate = _canBeCandidate;
-
-				_canBeCandidate = true;
-
 				if (CanBeEvaluatedInHqlStatementShortcut(expression))
 				{
-					_candidates.Add(expression);
+					HqlCandidates.Add(expression);
 					return expression;
 				}
 
-				base.VisitExpression(expression);
+				expression = base.VisitExpression(expression);
 
 				if (_canBeCandidate)
 				{
 					if (CanBeEvaluatedInHqlSelectStatement(expression, projectConstantsInHql))
 					{
-						_candidates.Add(expression);
+						HqlCandidates.Add(expression);
 					}
 					else
 					{
 						_canBeCandidate = false;
 					}
 				}
-
-				_canBeCandidate = _canBeCandidate & saveCanBeCandidate;
 			}
 			finally
 			{
 				_stateStack.Pop();
+				_canBeCandidate = _canBeCandidate && saveCanBeCandidate;
 			}
 
 			return expression;
@@ -89,13 +121,25 @@ namespace NHibernate.Linq.Visitors
 						   methodCallExpression.Object.NodeType != ExpressionType.Constant; // does not belong to parameter 
 				}
 			}
+			else if (expression.NodeType == (ExpressionType)NhExpressionType.Sum ||
+						expression.NodeType == (ExpressionType)NhExpressionType.Count ||
+						expression.NodeType == (ExpressionType)NhExpressionType.Average ||
+						expression.NodeType == (ExpressionType)NhExpressionType.Max ||
+						expression.NodeType == (ExpressionType)NhExpressionType.Min)
+			{
+				return true;
+			}
 			return false;
+
 		}
 
 		private bool CanBeEvaluatedInHqlSelectStatement(Expression expression, bool projectConstantsInHql)
 		{
 			// HQL can't do New or Member Init
-			if ((expression.NodeType == ExpressionType.MemberInit) || (expression.NodeType == ExpressionType.New))
+			if (expression.NodeType == ExpressionType.MemberInit || 
+				expression.NodeType == ExpressionType.New || 
+				expression.NodeType == ExpressionType.NewArrayInit ||
+				expression.NodeType == ExpressionType.NewArrayBounds)
 			{
 				return false;
 			}
@@ -109,8 +153,17 @@ namespace NHibernate.Linq.Visitors
 			if (expression.NodeType == ExpressionType.Call)
 			{
 				// Depends if it's in the function registry
-				if (!IsRegisteredFunction(expression))
-					return false;
+				return IsRegisteredFunction(expression);
+			}
+
+			if (expression.NodeType == ExpressionType.Conditional)
+			{
+				// Theoretically, any conditional that returns a CAST-able primitive should be constructable in HQL.
+				// The type needs to be CAST-able because HQL wraps the CASE clause in a CAST and only supports
+				// certain types (as defined by the HqlIdent constructor that takes a System.Type as the second argument).
+				// However, this may still not cover all cases, so to limit the nomination of conditional expressions,
+				// we will only consider those which are already getting constants projected into them.
+				return projectConstantsInHql;
 			}
 
 			// Assume all is good

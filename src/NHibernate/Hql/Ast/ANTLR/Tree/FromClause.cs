@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Antlr.Runtime;
-using Iesi.Collections.Generic;
 
 using NHibernate.Hql.Ast.ANTLR.Util;
 using NHibernate.Util;
@@ -24,7 +23,9 @@ namespace NHibernate.Hql.Ast.ANTLR.Tree
 		/// <summary>
 		/// Counts the from elements as they are added.
 		/// </summary>
+#pragma warning disable 649
 		private int _fromElementCounter;
+#pragma warning restore 649
 
 		private readonly NullableDictionary<string, FromElement> _fromElementByClassAlias = new NullableDictionary<string, FromElement>();
 		private readonly Dictionary<string, FromElement> _fromElementByTableAlias = new Dictionary<string, FromElement>();
@@ -149,7 +150,7 @@ namespace NHibernate.Hql.Ast.ANTLR.Tree
 		{
 			if (_childFromClauses == null)
 			{
-				_childFromClauses = new HashedSet<FromClause>();
+				_childFromClauses = new HashSet<FromClause>();
 			}
 			_childFromClauses.Add(fromClause);
 		}
@@ -165,12 +166,12 @@ namespace NHibernate.Hql.Ast.ANTLR.Tree
 			// The path may be a reference to an alias defined in the parent query.
 			string classAlias = ( alias == null ) ? null : alias.Text;
 			CheckForDuplicateClassAlias( classAlias );
-			FromElementFactory factory = new FromElementFactory(this, null, path, classAlias, null, false);
+			var factory = new FromElementFactory(this, null, path, classAlias, null, false);
 			return factory.AddFromElement();
 		}
 
 		/// <summary>
-		/// Retreives the from-element represented by the given alias.
+		/// Retrieves the from-element represented by the given alias.
 		/// </summary>
 		/// <param name="aliasOrClassName">The alias by which to locate the from-element.</param>
 		/// <returns>The from-element assigned the given alias, or null if none.</returns>
@@ -285,7 +286,7 @@ namespace NHibernate.Hql.Ast.ANTLR.Tree
 
 		private static bool FromElementPredicate(IASTNode node) 
 		{
-			FromElement fromElement = node as FromElement;
+			var fromElement = node as FromElement;
 
 			if (fromElement != null)
 			{
@@ -297,7 +298,7 @@ namespace NHibernate.Hql.Ast.ANTLR.Tree
 
 		static bool ExplicitFromPredicate(IASTNode node)
 		{
-			FromElement fromElement = node as FromElement;
+			var fromElement = node as FromElement;
 
 			if (fromElement != null)
 			{
@@ -309,7 +310,7 @@ namespace NHibernate.Hql.Ast.ANTLR.Tree
 
 		private static bool CollectionFetchPredicate(IASTNode node)
 		{
-			FromElement fromElement = node as FromElement;
+			var fromElement = node as FromElement;
 
 			if (fromElement != null)
 			{
@@ -324,7 +325,7 @@ namespace NHibernate.Hql.Ast.ANTLR.Tree
 			foreach (var entry in _fromElementByClassAlias)
 			{
 				string alias = entry.Key;
-				if (alias.ToLowerInvariant() == specifiedAlias.ToLowerInvariant())
+				if (string.Equals(alias, specifiedAlias, StringComparison.InvariantCultureIgnoreCase))
 				{
 					return entry.Value;
 				}
@@ -363,7 +364,7 @@ namespace NHibernate.Hql.Ast.ANTLR.Tree
 		{
 			// Make sure that all from elements registered with this FROM clause are actually in the AST.
 			var iter = (new ASTIterator(GetFirstChild())).GetEnumerator();
-			var childrenInTree = new HashedSet<IASTNode>();
+			var childrenInTree = new HashSet<IASTNode>();
 			while (iter.MoveNext())
 			{
 				childrenInTree.Add(iter.Current);

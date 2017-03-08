@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using Iesi.Collections.Generic;
 using NUnit.Framework;
 
 namespace NHibernate.Test.NHSpecificTest.NH1289
 {
-	[TestFixture,Ignore]
+	[TestFixture, Ignore("Not fixed yet.")]
 	public class Fixture:BugTestCase
 	{
 		protected override void OnSetUp()
@@ -16,7 +15,7 @@ namespace NHibernate.Test.NHSpecificTest.NH1289
 			{
 				var purchaseOrder = new Cons_PurchaseOrder
 				                    	{
-				                    		PurchaseItems = new HashedSet<PurchaseItem>(),
+				                    		PurchaseItems = new HashSet<PurchaseItem>(),
 				                    	};
 				var product = new Cons_Product
 				              	{

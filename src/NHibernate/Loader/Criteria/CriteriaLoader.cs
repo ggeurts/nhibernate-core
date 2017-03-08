@@ -1,8 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Data;
-using Iesi.Collections.Generic;
+using System.Data.Common;
 using NHibernate.Engine;
 using NHibernate.Impl;
 using NHibernate.Param;
@@ -29,9 +28,13 @@ namespace NHibernate.Loader.Criteria
 		//the user visible aliases, which are unknown to the superclass,
 		//these are not the actual "physical" SQL aliases
 		private readonly string[] userAliases;
+		private readonly bool[] includeInResultRow;
+		private readonly int resultRowLength;
+		// caching NH-3486
+		private readonly string[] cachedProjectedColumnAliases;
 
 		public CriteriaLoader(IOuterJoinLoadable persister, ISessionFactoryImplementor factory, CriteriaImpl rootCriteria,
-		                      string rootEntityName, IDictionary<string, IFilter> enabledFilters)
+							  string rootEntityName, IDictionary<string, IFilter> enabledFilters)
 			: base(factory, enabledFilters)
 		{
 			translator = new CriteriaQueryTranslator(factory, rootCriteria, rootEntityName, CriteriaQueryTranslator.RootSqlAlias);
@@ -45,6 +48,13 @@ namespace NHibernate.Loader.Criteria
 
 			userAliases = walker.UserAliases;
 			resultTypes = walker.ResultTypes;
+			includeInResultRow = walker.IncludeInResultRow;
+			resultRowLength = ArrayHelper.CountTrue(IncludeInResultRow);
+			// fill caching objects only if there is a projection
+			if (translator.HasProjection)
+			{
+				cachedProjectedColumnAliases = translator.ProjectedColumnAliases;
+			}
 
 			PostInstantiate();
 		}
@@ -71,53 +81,89 @@ namespace NHibernate.Loader.Criteria
 			get { return resultTypes; }
 		}
 
+		protected override string[] ResultRowAliases
+		{
+			get { return userAliases; }
+		}
+
+		protected override bool[] IncludeInResultRow
+		{
+			get { return includeInResultRow; }
+		}
+
 		public IList List(ISessionImplementor session)
 		{
 			return List(session, translator.GetQueryParameters(), querySpaces, resultTypes);
 		}
 
-		protected override object GetResultColumnOrRow(object[] row, IResultTransformer customResultTransformer, IDataReader rs,
-		                                               ISessionImplementor session)
+		protected override IResultTransformer ResolveResultTransformer(IResultTransformer resultTransformer)
+		{
+			return translator.RootCriteria.ResultTransformer;
+		}
+
+		protected override bool AreResultSetRowsTransformedImmediately()
+		{
+			return true;
+		}
+
+		protected override object GetResultColumnOrRow(object[] row, IResultTransformer customResultTransformer, DbDataReader rs,
+													   ISessionImplementor session)
+		{
+			return ResolveResultTransformer(customResultTransformer)
+				.TransformTuple(GetResultRow(row, rs, session), ResultRowAliases);
+		}
+
+
+		protected override object[] GetResultRow(object[] row, DbDataReader rs, ISessionImplementor session)
 		{
 			object[] result;
 
 			if (translator.HasProjection)
 			{
-				IType[] types = translator.ProjectedTypes;
-				result = new object[types.Length];
-				string[] columnAliases = translator.ProjectedColumnAliases;
-				
+				result = new object[ResultTypes.Length];
+
 				for (int i = 0, position = 0; i < result.Length; i++)
 				{
-					int numColumns = types[i].GetColumnSpan(session.Factory);
-					
-					if ( numColumns > 1 ) 
+					int numColumns = ResultTypes[i].GetColumnSpan(session.Factory);
+
+					if (numColumns > 1)
 					{
-						string[] typeColumnAliases = ArrayHelper.Slice(columnAliases, position, numColumns);
-						result[i] = types[i].NullSafeGet(rs, typeColumnAliases, session, null);
+						string[] typeColumnAliases = ArrayHelper.Slice(cachedProjectedColumnAliases, position, numColumns);
+						result[i] = ResultTypes[i].NullSafeGet(rs, typeColumnAliases, session, null);
 					}
 					else
 					{
-						result[i] = types[i].NullSafeGet(rs, columnAliases[position], session, null);
+						result[i] = ResultTypes[i].NullSafeGet(rs, cachedProjectedColumnAliases[position], session, null);
 					}
 					position += numColumns;
 				}
 			}
 			else
 			{
-				result = row;
-			}
-
-			if (customResultTransformer == null)
-			{
-				// apply the defaut transformer of criteria aka RootEntityResultTransformer
-				return result[result.Length - 1];
+				result = ToResultRow(row);
 			}
 			return result;
 		}
 
+
+		private object[] ToResultRow(object[] row)
+		{
+			if (resultRowLength == row.Length)
+				return row;
+
+			var result = new object[resultRowLength];
+			int j = 0;
+			for (int i = 0; i < row.Length; i++)
+			{
+				if (includeInResultRow[i])
+					result[j++] = row[i];
+			}
+
+			return result;
+		}
+
 		protected override SqlString ApplyLocks(SqlString sqlSelectString, IDictionary<string, LockMode> lockModes,
-		                                        Dialect.Dialect dialect)
+												Dialect.Dialect dialect)
 		{
 			if (lockModes == null || lockModes.Count == 0)
 			{
@@ -127,22 +173,27 @@ namespace NHibernate.Loader.Criteria
 			Dictionary<string, LockMode> aliasedLockModes = new Dictionary<string, LockMode>();
 			Dictionary<string, string[]> keyColumnNames = dialect.ForUpdateOfColumns ? new Dictionary<string, string[]>() : null;
 			string[] drivingSqlAliases = Aliases;
-			for (int i = 0; i < drivingSqlAliases.Length; i++)
+
+			//NH-3710: if we are issuing an aggregation function, Aliases will be null
+			if (drivingSqlAliases != null)
 			{
-				LockMode lockMode;
-				if (lockModes.TryGetValue(drivingSqlAliases[i], out lockMode))
+				for (int i = 0; i < drivingSqlAliases.Length; i++)
 				{
-					ILockable drivingPersister = (ILockable) EntityPersisters[i];
-					string rootSqlAlias = drivingPersister.GetRootTableAlias(drivingSqlAliases[i]);
-					aliasedLockModes[rootSqlAlias] = lockMode;
-					if (keyColumnNames != null)
+					LockMode lockMode;
+					if (lockModes.TryGetValue(drivingSqlAliases[i], out lockMode))
 					{
-						keyColumnNames[rootSqlAlias] = drivingPersister.RootTableIdentifierColumnNames;
+						ILockable drivingPersister = (ILockable)EntityPersisters[i];
+						string rootSqlAlias = drivingPersister.GetRootTableAlias(drivingSqlAliases[i]);
+						aliasedLockModes[rootSqlAlias] = lockMode;
+						if (keyColumnNames != null)
+						{
+							keyColumnNames[rootSqlAlias] = drivingPersister.RootTableIdentifierColumnNames;
+						}
 					}
 				}
 			}
 
-			return dialect.ApplyLocksToSql(sqlSelectString, lockModes, keyColumnNames);
+			return dialect.ApplyLocksToSql(sqlSelectString, aliasedLockModes, keyColumnNames);
 		}
 
 		public override LockMode[] GetLockModes(IDictionary<string, LockMode> lockModes)
@@ -166,20 +217,9 @@ namespace NHibernate.Loader.Criteria
 			return lockModesArray;
 		}
 
-		public override IList GetResultList(IList results, IResultTransformer customResultTransformer)
+		public override IList GetResultList(IList results, IResultTransformer resultTransformer)
 		{
-			if (customResultTransformer == null)
-			{
-				// apply the defaut transformer of criteria aka RootEntityResultTransformer
-				return results;
-			}
-			for (int i = 0; i < results.Count; i++)
-			{
-				var row = results[i] as object[] ?? new object[] { results[i] };
-				object result = customResultTransformer.TransformTuple(row, translator.HasProjection ? translator.ProjectedAliases : userAliases);
-				results[i] = result;
-			}
-			return customResultTransformer.TransformList(results);
+			return ResolveResultTransformer(resultTransformer).TransformList(results);
 		}
 
 		protected override IEnumerable<IParameterSpecification> GetParameterSpecifications()

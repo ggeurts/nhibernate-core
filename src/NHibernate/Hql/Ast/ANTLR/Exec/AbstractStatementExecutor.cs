@@ -1,18 +1,19 @@
 using System;
-using System.Data;
+using System.Data.Common;
+using Antlr.Runtime;
 using Antlr.Runtime.Tree;
 using NHibernate.Action;
+using NHibernate.AdoNet.Util;
 using NHibernate.Engine;
 using NHibernate.Engine.Transaction;
 using NHibernate.Event;
 using NHibernate.Hql.Ast.ANTLR.Tree;
 using NHibernate.Persister.Entity;
 using NHibernate.SqlCommand;
-
-using Antlr.Runtime;
 using NHibernate.SqlTypes;
+using NHibernate.Transaction;
 using NHibernate.Util;
-using NHibernate.AdoNet.Util;
+using System.Data;
 
 namespace NHibernate.Hql.Ast.ANTLR.Exec
 {
@@ -63,22 +64,9 @@ namespace NHibernate.Hql.Ast.ANTLR.Exec
 
 			string rootTableName = persister.TableName;
 			SqlString fromJoinFragment = persister.FromJoinFragment(tableAlias, true, false);
-			SqlString whereJoinFragment = persister.WhereJoinFragment(tableAlias, true, false);
-
-			select.SetFromClause(rootTableName + ' ' + tableAlias + fromJoinFragment);
-
-			if (whereJoinFragment == null)
-			{
-				whereJoinFragment = SqlString.Empty;
-			}
-			else
-			{
-				whereJoinFragment = whereJoinFragment.Trim();
-				if (whereJoinFragment.StartsWithCaseInsensitive("and "))
-				{
-					whereJoinFragment = whereJoinFragment.Substring(4);
-				}
-			}
+			select.SetFromClause(rootTableName + " " + tableAlias + fromJoinFragment);
+			
+			var whereJoinFragment = GetWhereJoinFragment(persister, tableAlias);
 
 			SqlString userWhereClause = SqlString.Empty;
 			if (whereClause.ChildCount != 0)
@@ -98,7 +86,7 @@ namespace NHibernate.Hql.Ast.ANTLR.Exec
 				}
 				if (whereJoinFragment.Length > 0)
 				{
-					whereJoinFragment.Append(" and ");
+					whereJoinFragment = whereJoinFragment.Append(" and ");
 				}
 			}
 
@@ -112,6 +100,24 @@ namespace NHibernate.Hql.Ast.ANTLR.Exec
 			insert.SetTableName(persister.TemporaryIdTableName);
 			insert.SetSelect(select);
 			return insert.ToSqlString();
+		}
+
+		private static SqlString GetWhereJoinFragment(IJoinable persister, string tableAlias)
+		{
+			SqlString whereJoinFragment = persister.WhereJoinFragment(tableAlias, true, false);
+			if (whereJoinFragment == null)
+			{
+				whereJoinFragment = SqlString.Empty;
+			}
+			else
+			{
+				whereJoinFragment = whereJoinFragment.Trim();
+				if (whereJoinFragment.StartsWithCaseInsensitive("and "))
+				{
+					whereJoinFragment = whereJoinFragment.Substring(4);
+				}
+			}
+			return whereJoinFragment;
 		}
 
 		protected string GenerateIdSubselect(IQueryable persister)
@@ -137,8 +143,11 @@ namespace NHibernate.Hql.Ast.ANTLR.Exec
 			}
 			else
 			{
-				work.DoWork(session.ConnectionManager.GetConnection(), null);
-				session.ConnectionManager.AfterStatement();
+				using (var dummyCommand = session.ConnectionManager.CreateCommand())
+				{
+					work.DoWork(dummyCommand.Connection, dummyCommand.Transaction);
+					session.ConnectionManager.AfterStatement();
+				}
 			}
 		}
 
@@ -160,30 +169,36 @@ namespace NHibernate.Hql.Ast.ANTLR.Exec
 
 				if (ShouldIsolateTemporaryTableDDL())
 				{
-					if (Factory.Settings.IsDataDefinitionInTransactionSupported)
+					session.ConnectionManager.Transaction.RegisterSynchronization(new AfterTransactionCompletes((success) =>
 					{
-						Isolater.DoIsolatedWork(work, session);
-					}
-					else
-					{
-						Isolater.DoNonTransactedWork(work, session);
-					}
+						if (Factory.Settings.IsDataDefinitionInTransactionSupported)
+						{
+							Isolater.DoIsolatedWork(work, session);
+						}
+						else
+						{
+							Isolater.DoNonTransactedWork(work, session);
+						}
+					}));
 				}
 				else
 				{
-					work.DoWork(session.ConnectionManager.GetConnection(), null);
-					session.ConnectionManager.AfterStatement();
+					using (var dummyCommand = session.ConnectionManager.CreateCommand())
+					{
+						work.DoWork(dummyCommand.Connection, dummyCommand.Transaction);
+						session.ConnectionManager.AfterStatement();
+					}
 				}
 			}
 			else
 			{
 				// at the very least cleanup the data :)
-				IDbCommand ps = null;
+				DbCommand ps = null;
 				try
 				{
 					var commandText = new SqlString("delete from " + persister.TemporaryIdTableName);
 					ps = session.Batcher.PrepareCommand(CommandType.Text, commandText, new SqlType[0]);
-					ps.ExecuteNonQuery();
+					session.Batcher.ExecuteNonQuery(ps);
 				}
 				catch (Exception t)
 				{
@@ -219,12 +234,13 @@ namespace NHibernate.Hql.Ast.ANTLR.Exec
 				this.session = session;
 			}
 
-			public void DoWork(IDbConnection connection, IDbTransaction transaction)
+			public void DoWork(DbConnection connection, DbTransaction transaction)
 			{
-				IDbCommand stmnt = null;
+				DbCommand stmnt = null;
 				try
 				{
-					stmnt = session.ConnectionManager.CreateCommand();
+					stmnt = connection.CreateCommand();
+					stmnt.Transaction = transaction;
 					stmnt.CommandText = persister.TemporaryIdTableDDL;
 					stmnt.ExecuteNonQuery();
 					session.Factory.Settings.SqlStatementLogger.LogCommand(stmnt, FormatStyle.Ddl);
@@ -263,12 +279,13 @@ namespace NHibernate.Hql.Ast.ANTLR.Exec
 			private readonly IInternalLogger log;
 			private readonly ISessionImplementor session;
 
-			public void DoWork(IDbConnection connection, IDbTransaction transaction)
+			public void DoWork(DbConnection connection, DbTransaction transaction)
 			{
-				IDbCommand stmnt = null;
+				DbCommand stmnt = null;
 				try
 				{
-					stmnt = session.ConnectionManager.CreateCommand();
+					stmnt = connection.CreateCommand();
+					stmnt.Transaction = transaction;
 					stmnt.CommandText = "drop table " + persister.TemporaryIdTableName;
 					stmnt.ExecuteNonQuery();
 					session.Factory.Settings.SqlStatementLogger.LogCommand(stmnt, FormatStyle.Ddl);

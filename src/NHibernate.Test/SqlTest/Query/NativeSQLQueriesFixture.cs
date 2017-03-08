@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Linq;
 using NHibernate.Criterion;
 using NHibernate.Transform;
 using NUnit.Framework;
@@ -280,7 +281,7 @@ namespace NHibernate.Test.SqlTest.Query
 
 			s = OpenSession();
 			t = s.BeginTransaction();
-			sqlQuery = s.GetNamedQuery("organizationreturnproperty");
+			sqlQuery = s.GetNamedQuery("organization-using-manual-aliases");
 			sqlQuery.SetResultTransformer(CriteriaSpecification.AliasToEntityMap);
 			list = sqlQuery.List();
 			Assert.AreEqual(2, list.Count);
@@ -620,6 +621,108 @@ namespace NHibernate.Test.SqlTest.Query
 			              "> target<" +
 			              target.FullName + ">"
 				);
+		}
+
+		class TestResultSetTransformer : IResultTransformer
+		{
+			public bool TransformTupleCalled { get; set; }
+			public bool TransformListCalled { get; set; }
+			public object TransformTuple(object[] tuple, string[] aliases)
+			{
+				this.TransformTupleCalled = true;
+				return tuple;
+	}
+			public IList TransformList(IList collection)
+			{
+				this.TransformListCalled = true;
+				return collection;
+			}
+		}
+
+		[Test]
+		public void CanSetResultTransformerOnFutureQuery()
+		{
+			//NH-3222
+			using (var s = this.OpenSession())
+			using (s.BeginTransaction())
+			{
+				s.Save(new Person("Ricardo"));
+				s.Flush();
+
+				var transformer = new TestResultSetTransformer();
+				var l = s
+					.CreateSQLQuery("select Name from Person")
+					.SetResultTransformer(transformer)
+					.Future<object[]>();
+
+				Assert.AreEqual(l.Count(), 1);
+				Assert.AreEqual("Ricardo", l.ElementAt(0)[0]);
+				Assert.IsTrue(transformer.TransformListCalled);
+				Assert.IsTrue(transformer.TransformTupleCalled);
+			}
+		}
+
+		[Test]
+		public void CanSetResultTransformerOnFutureValue()
+		{
+			//NH-3222
+			using (var s = this.OpenSession())
+			using (s.BeginTransaction())
+			{
+				s.Save(new Person("Ricardo"));
+				s.Flush();
+
+				var transformer = new TestResultSetTransformer();
+				var l = s
+					.CreateSQLQuery("select Name from Person")
+					.SetResultTransformer(transformer)
+					.FutureValue<object[]>();
+
+				var v = l.Value;
+
+				Assert.AreEqual("Ricardo", v[0]);
+				Assert.IsTrue(transformer.TransformListCalled);
+				Assert.IsTrue(transformer.TransformTupleCalled);
+			}
+		}
+
+		[Test]
+		public void CanExecuteFutureList()
+		{
+			//NH-3222
+			using (var s = this.OpenSession())
+			using (s.BeginTransaction())
+			{
+				s.Save(new Person("Ricardo"));
+				s.Flush();
+
+				var l = s
+					.CreateSQLQuery("select Name from Person")
+					.Future<string>();
+
+				Assert.AreEqual(l.Count(), 1);
+				Assert.AreEqual("Ricardo", l.ElementAt(0));
+			}
+		}
+
+		[Test]
+		public void CanExecuteFutureValue()
+		{
+			//NH-3222
+			using (var s = this.OpenSession())
+			using (s.BeginTransaction())
+			{
+				s.Save(new Person("Ricardo"));
+				s.Flush();
+
+				var l = s
+					.CreateSQLQuery("select Name from Person")
+					.FutureValue<string>();
+
+				var v = l.Value;
+
+				Assert.AreEqual("Ricardo", v);
+			}
 		}
 	}
 }
