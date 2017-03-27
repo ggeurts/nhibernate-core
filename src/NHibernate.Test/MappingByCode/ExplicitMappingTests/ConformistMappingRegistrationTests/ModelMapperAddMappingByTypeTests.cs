@@ -1,8 +1,8 @@
 using System;
-using NUnit.Framework;
 using NHibernate.Mapping.ByCode;
+using NUnit.Framework;
 
-namespace NHibernate.Test.MappingByCode.ExpliticMappingTests.ConformistMappingRegistrationTests
+namespace NHibernate.Test.MappingByCode.ExplicitMappingTests.ConformistMappingRegistrationTests
 {
 	public class ModelMapperAddMappingByTypeTests
 	{

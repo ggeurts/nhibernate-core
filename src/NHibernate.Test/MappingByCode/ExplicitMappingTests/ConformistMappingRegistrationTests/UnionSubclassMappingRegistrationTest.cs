@@ -1,10 +1,10 @@
 using System.Linq;
 using NHibernate.Cfg.MappingSchema;
-using NUnit.Framework;
 using NHibernate.Mapping.ByCode;
 using NHibernate.Mapping.ByCode.Conformist;
+using NUnit.Framework;
 
-namespace NHibernate.Test.MappingByCode.ExpliticMappingTests.ConformistMappingRegistrationTests
+namespace NHibernate.Test.MappingByCode.ExplicitMappingTests.ConformistMappingRegistrationTests
 {
 	public class UnionSubclassMappingRegistrationTest
 	{

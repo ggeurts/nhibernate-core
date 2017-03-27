@@ -3,7 +3,7 @@ using System.Linq;
 using NHibernate.Mapping.ByCode;
 using NUnit.Framework;
 
-namespace NHibernate.Test.MappingByCode.ExpliticMappingTests
+namespace NHibernate.Test.MappingByCode.ExplicitMappingTests
 {
 	public class SubclassPropertiesSplitsTests
 	{
